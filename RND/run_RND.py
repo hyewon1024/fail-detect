@@ -38,9 +38,11 @@ LAMBDA_THRESHOLD = 0.01
 MIN_DEMO_TIME = 70
 HISTORIC_CONTEXT_LENGTH = 0  # H: 0, 1, 2, ... (number of past observations)
 FREEZE = True
+RND_BALANCE = True 
+ALPHA = 0.95
 
 # Create checkpoint folder name based on hyperparameters
-checkpoint_dir = f'checkpoints/rnd_iter{K_ITERATIONS}_lambda_adaptive_0.95_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
+checkpoint_dir = f'checkpoints/rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 print("="*60)
@@ -159,7 +161,7 @@ for iteration in range(K_ITERATIONS):
     
     # 2. Collect data with expert intervention
     print("\nCollecting data with RND-based expert intervention...")
-    num_samples = dagger.collect_data(env, STEPS_PER_ITERATION, beta)
+    num_samples = dagger.collect_data(env, STEPS_PER_ITERATION, beta, alpha_=ALPHA)
     
     dataset_size = len(dagger.dataset)
     nswitch = dagger.nswitch
@@ -175,7 +177,15 @@ for iteration in range(K_ITERATIONS):
     
     # 4. Train RND
     print("Training RND predictor...")
-    rnd_loss = dagger.train_rnd(num_epochs=5)
+    if RND_BALANCE:
+        rnd_loss = dagger.train_rnd_balanced(
+        num_epochs=300,
+        n_proj=8,
+        eps=0.1,
+        seed=0,
+        )
+    else:
+        rnd_loss = dagger.train_rnd(num_epochs=5)
     print(f"RND loss: {rnd_loss:.4f}")
     
     # Store results

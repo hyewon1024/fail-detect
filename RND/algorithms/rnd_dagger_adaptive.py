@@ -271,7 +271,7 @@ class RNDDAgger:
         
         return avg_reward, num_episodes
     
-    def collect_data(self, env, num_steps: int, beta: float):
+    def collect_data(self, env, num_steps: int, beta: float, alpha_=None):
         """Collect data for one DAgger iteration with RND-based intervention."""
         env.unwrapped.reset()
         states_list = []
@@ -286,7 +286,7 @@ class RNDDAgger:
         if self.obs_history is None:
             self._init_history_buffer(obs.shape[0], obs.shape[1])
 
-        adaptive_lambda, _, _ = self.quantile(0.95)
+        adaptive_lambda, _, _ = self.quantile(alpha_)
         t = 0
         while t < num_steps:
             self.global_step += 1
@@ -410,7 +410,83 @@ class RNDDAgger:
                 num_batches += 1
         
         return total_loss / max(num_batches, 1)
-    
+
+
+    #-------------
+    def train_rnd_balanced(
+        self,
+        num_epochs: int = 300,
+        n_proj: int = 8,
+        eps: float = 0.1,
+        seed: int = 1,
+    ):
+
+        torch.manual_seed(seed)
+        device = self.device
+        self.f_pred.train()
+
+        for p in self.f_targ.parameters():
+            p.requires_grad_(False)
+
+        dataloader = self.dataset.get_dataloader(batch_size=self.batch_size, shuffle=True)
+        if dataloader is None:
+            return 0.0
+
+        total_loss = 0.0
+        total_batches = 0
+
+        for epoch in range(num_epochs):
+            for states, _ in dataloader:
+
+                N, D = states.shape
+                idx = torch.randint(0, N, (self.batch_size,), device=device)
+                z = states[idx]                      # (B, D)
+
+                # --- Base RND loss ---
+                with torch.no_grad():
+                    t = self.f_targ(z)
+                p = self.f_pred(z)
+
+                E = (p - t).pow(2).sum(dim=-1)       # (B,)
+                loss_rnd = E.mean()
+
+                v = torch.randn(n_proj, D, device=device)
+                v = v / (v.norm(dim=1, keepdim=True) + 1e-8)
+
+                # 각 방향마다 perturbation 에너지 변화 측정
+                deltas_mean = []
+                for i in range(n_proj):
+                    delta = eps * v[i].unsqueeze(0)  # (1, D)
+                    z_pert = z + delta
+
+                    with torch.no_grad():
+                        targ_pert = self.f_targ(z_pert)
+                    pred_pert = self.f_pred(z_pert)
+
+                    E_pert = (pred_pert - targ_pert).pow(2).sum(dim=-1)  # scalar
+                    deltas_mean.append((E_pert - E).abs().mean())
+
+                deltas_mean = torch.stack(deltas_mean)
+                # log scale에서 variance 줄이기
+                log_deltas = torch.log(deltas_mean + 1e-8)
+                loss_bal = log_deltas.var()
+
+                loss = loss_rnd + loss_bal
+
+                self.rnd_optimizer.zero_grad()
+                loss.backward()
+                self.rnd_optimizer.step()
+
+                total_loss += loss.item()
+                total_batches += 1
+
+            # print(
+            #     f"[epoch {epoch+1:4d}] "
+            #     f"RND={loss_rnd.item():.6f} Bal={loss_bal.item():.6f}"
+            # )
+
+        return total_loss / max(total_batches, 1)
+    #------------
     def train_rnd(self, num_epochs: int = 5):
         """Train RND predictor network."""
         dataloader = self.dataset.get_dataloader(batch_size=self.batch_size, shuffle=True)
