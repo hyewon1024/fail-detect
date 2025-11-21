@@ -7,9 +7,10 @@ class ExpertDataset(Dataset):
     def __init__(self, device: str = "cpu"):
         self.states = []
         self.actions = []
+        self.expert_actions =[]
         self.device = device
     
-    def add_samples(self, states, actions):
+    def add_samples(self, states, actions, expert_actions):
         """Add new samples to dataset"""
         if isinstance(states, torch.Tensor):
             self.states.append(states.cpu())
@@ -20,7 +21,13 @@ class ExpertDataset(Dataset):
             self.actions.append(actions.cpu())
         else:
             self.actions.append(torch.tensor(actions, dtype=torch.float32))
-    
+            
+        if isinstance(expert_actions, torch.Tensor):
+            self.expert_actions.append(expert_actions.cpu())
+        else:
+            self.expert_actions.append(torch.tensor(expert_actions, dtype=torch.float32))
+            
+
     def __len__(self):
         if len(self.states) == 0:
             return 0
@@ -45,6 +52,7 @@ class ExpertDataset(Dataset):
         """Clear all data"""
         self.states = []
         self.actions = []
+        self.expert_actions =[]
     
     def get_dataloader(self, batch_size: int = 256, shuffle: bool = True):
         """Get PyTorch DataLoader"""

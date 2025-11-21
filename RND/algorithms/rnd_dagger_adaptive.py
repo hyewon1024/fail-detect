@@ -211,7 +211,7 @@ class RNDDAgger:
         if len(states_list) > 0:
             states_tensor = torch.cat(states_list, dim=0)
             actions_tensor = torch.cat(actions_list, dim=0)
-            self.dataset.add_samples(states_tensor, actions_tensor)
+            self.dataset.add_samples(states_tensor, actions_tensor, actions_tensor)
         
         print(f"Finished collecting {len(states_list)} expert samples, rewards {rewards}")
         return len(states_list)
@@ -276,6 +276,7 @@ class RNDDAgger:
         env.unwrapped.reset()
         states_list = []
         actions_list = []
+        expert_actions_list =[]
 
         obs, _ = env.reset()
         self.w_counter = self.min_demo_time + 1
@@ -313,54 +314,22 @@ class RNDDAgger:
                     action = self.policy(obs)
             
             # Decide who controls the agent
+            expert_action = self.expert.compute(obs)
             if m.mean() > adaptive_lambda:
                 # Expert control
                 self.nswitch += 1 
-                expert_action = self.expert.compute(obs)
                 states_list.append(obs.cpu())
                 actions_list.append(expert_action.cpu())
             else:     
                 # Learner Policy 
                 states_list.append(obs.cpu())
                 actions_list.append(action.cpu())
+            expert_actions_list.append(expert_action.cpu()) # ADD
                                         
             # Step environment with chosen action
-            #print("current m.mean(): ", m.mean())
             obs, _, terminated, truncated, _ = env.step(action)
             t += 1
 
-        # while t < num_steps:
-        #     # Update history
-        #     self._update_history(obs)
-            
-        #     # Compute OOD measure
-        #     m = self.compute_ood_measure(obs)
-            
-        #     # Decide who controls the agent
-        #     if m.mean() > self.lambda_threshold or self.w_counter < self.min_demo_time:
-        #         # Expert control
-        #         if m.mean() < self.lambda_threshold:
-        #             self.w_counter += 1
-        #         else:
-        #             self.w_counter = 0
-
-        #         action = self.expert.compute(obs)
-        #         states_list.append(obs.cpu())
-        #         actions_list.append(action.cpu())
-
-        #         if self.m_previous < self.lambda_threshold:
-        #             self.nswitch += 1
-        #         self.m_previous = m.mean()
-
-        #     else:
-        #         # Policy control
-        #         with torch.no_grad():
-        #             action = self.policy(obs)
-
-        #     # Step environment
-        #     obs, _, terminated, truncated, _ = env.step(action)
-        #     t += 1
-            
             # Reset if done
             if terminated.any() or truncated.any():
                 obs, _ = env.reset()
@@ -374,13 +343,15 @@ class RNDDAgger:
                     if len(done_indices) > 0:
                         self.obs_history[done_indices] = 0.0
                 self.episode_count += 1     
-                self.logger.log_episode_end(self.episode_count)   
+                self.logger.log_episode_end(self.episode_count)
+
         print("current switch number from learner to expert", self.nswitch)
         # Add to dataset
         if len(states_list) > 0:
             states_tensor = torch.cat(states_list, dim=0)
             actions_tensor = torch.cat(actions_list, dim=0)
-            self.dataset.add_samples(states_tensor, actions_tensor)
+            expert_actions_tensor = torch.cat(expert_actions_list, dim=0)
+            self.dataset.add_samples(states_tensor, actions_tensor, expert_actions_tensor)
         
         return len(states_list)
     

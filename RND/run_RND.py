@@ -40,9 +40,10 @@ HISTORIC_CONTEXT_LENGTH = 0  # H: 0, 1, 2, ... (number of past observations)
 FREEZE = True
 RND_BALANCE = True 
 ALPHA = 0.95
+EPOCH = 10
 
 # Create checkpoint folder name based on hyperparameters
-checkpoint_dir = f'checkpoints/rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
+checkpoint_dir = f'checkpoints/rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_epoch_{EPOCH}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 print("="*60)
@@ -179,8 +180,8 @@ for iteration in range(K_ITERATIONS):
     print("Training RND predictor...")
     if RND_BALANCE:
         rnd_loss = dagger.train_rnd_balanced(
-        num_epochs=300,
-        n_proj=8,
+        num_epochs=EPOCH,
+        n_proj=25,
         eps=0.1,
         seed=0,
         )
@@ -223,7 +224,8 @@ for iteration in range(K_ITERATIONS):
         np.savez_compressed(
             f"{checkpoint_dir}/expert_dataset_{iteration + 1}.npz",
             states=torch.cat(dagger.dataset.states).numpy(),
-            actions=torch.cat(dagger.dataset.actions).numpy()
+            actions=torch.cat(dagger.dataset.actions).numpy(),
+            expert_actions=torch.cat(dagger.dataset.expert_actions).numpy()
         )
         print(f"\nSaved dataset at iteration {iteration + 1}")
 
