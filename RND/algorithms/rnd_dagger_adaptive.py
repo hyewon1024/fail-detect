@@ -24,13 +24,15 @@ class RNDDAgger:
         logger= None,
         calib_split_ratio: float = 0.5,
         alpha: float = 0.1,
+        alg = None, 
     ):
         self.policy = policy
         self.f_targ = f_targ
         self.f_pred = f_pred
         self.expert = expert
         self.device = device
-        
+        self.alg = alg
+
         self.lambda_threshold = lambda_threshold
         self.min_demo_time = min_demo_time
         self.historic_context_length = historic_context_length
@@ -302,8 +304,10 @@ class RNDDAgger:
         # Initialize history buffer if needed
         if self.obs_history is None:
             self._init_history_buffer(obs.shape[0], obs.shape[1])
+            
         adaptive_lambda, _, _ = self.quantile(alpha_)
         t = 0
+
         while t < num_steps:
             self.global_step += 1
             self._update_history(obs)
@@ -316,7 +320,10 @@ class RNDDAgger:
                 episode=self.episode_count
             )
             # Decide whether to use policy or expert based on RND
-            use_expert = m.mean() > adaptive_lambda
+            if self.alg =="pure_dagger":
+                use_expert = random.random() < beta
+            else: 
+                use_expert = m.mean() > adaptive_lambda
 
             if use_expert:
                 expert_action = self.expert.compute(obs)
@@ -368,7 +375,7 @@ class RNDDAgger:
         
         return len(states_list)
     
-    
+     
     def train_policy(self, num_epochs: int = 10):
         """Train policy using BC on collected dataset."""
         dataloader = self.dataset.get_dataloader(batch_size=self.batch_size, shuffle=True)
@@ -475,6 +482,7 @@ class RNDDAgger:
         avg_loss = total_loss / max(total_batches, 1)
         self.quantile()
         return avg_loss
+    
     #------------
     def train_rnd(self, num_epochs: int = 5):
         """Train RND predictor network."""

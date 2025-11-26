@@ -21,6 +21,8 @@ class RNDDAgger:
         rnd_lr: float = 1e-4,
         batch_size: int = 256,
         logger= None,
+        calib_split_ratio: float = 0.5,
+        alpha: float = 0.1,
     ):
         self.policy = policy
         self.f_targ = f_targ
@@ -287,38 +289,6 @@ class RNDDAgger:
             #print("current m.mean(): ", m.mean())
             obs, _, terminated, truncated, _ = env.step(action)
             t += 1
-
-        # while t < num_steps:
-        #     # Update history
-        #     self._update_history(obs)
-            
-        #     # Compute OOD measure
-        #     m = self.compute_ood_measure(obs)
-            
-        #     # Decide who controls the agent
-        #     if m.mean() > self.lambda_threshold or self.w_counter < self.min_demo_time:
-        #         # Expert control
-        #         if m.mean() < self.lambda_threshold:
-        #             self.w_counter += 1
-        #         else:
-        #             self.w_counter = 0
-
-        #         action = self.expert.compute(obs)
-        #         states_list.append(obs.cpu())
-        #         actions_list.append(action.cpu())
-
-        #         if self.m_previous < self.lambda_threshold:
-        #             self.nswitch += 1
-        #         self.m_previous = m.mean()
-
-        #     else:
-        #         # Policy control
-        #         with torch.no_grad():
-        #             action = self.policy(obs)
-
-        #     # Step environment
-        #     obs, _, terminated, truncated, _ = env.step(action)
-        #     t += 1
             
             # Reset if done
             if terminated.any() or truncated.any():

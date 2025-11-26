@@ -27,12 +27,31 @@ MIN_DEMO_TIME = 70
 HISTORIC_CONTEXT_LENGTH = 0  # H: 0, 1, 2, ... (number of past observations)
 FREEZE = True
 RND_BALANCE = True
-ALPHA = 0.7
 EPOCH = 10
 
+# ----------change ----------------
+ALPHA = 0.7
+ALG = "Balanced_Dagger" # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
+# ----------change ----------------
 
+if ALG == "Pure_Dagger":
+    RND_BALANCE = False
+    LAMBDA_THRESHOLD = 0
+
+elif ALG == "R_Dagger":
+    RND_BALANCE = False
+    LAMBDA_THRESHOLD = 0.01  # change adaptively 
+
+elif ALG == "Balanced_Dagger":
+    RND_BALANCE = True
+    LAMBDA_THRESHOLD = 0.01  # change adaptively 
+
+elif ALG =="Safe_Dagger":
+    RND_BALANCE = False
+    LAMBDA_THRESHOLD = 0
+    
 # Create checkpoint folder name based on hyperparameters
-checkpoint_dir = f'checkpoints/[rnd_dagger_v]rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_epoch_{EPOCH}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
+checkpoint_dir = f'checkpoints/[{ALG}]rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_epoch_{EPOCH}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 print("="*60)
@@ -71,6 +90,7 @@ f_targ, f_pred = create_rnd_networks(
     freeze=FREEZE
 )
 
+
 # Initialize RND-DAgger
 dagger = RNDDAgger(
     policy=policy,
@@ -85,6 +105,7 @@ dagger = RNDDAgger(
     rnd_lr=1e-4,
     batch_size=256,
     logger=ood_logger, # ood logger 
+    alg = ALG,
 )
 
 # Save hyperparameters
