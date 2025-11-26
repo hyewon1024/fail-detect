@@ -18,19 +18,7 @@ from task_utils.ExpertPolicy import ExpertPolicy
 from models.bc_policy import BCPolicy
 from models.rnd_network import create_rnd_networks
 from algorithms.rnd_dagger_adaptive import RNDDAgger
-class OODLogger:
-    def __init__(self, log_path):
-        self.log_path = log_path
-        with open(log_path, "w") as f:
-            f.write("global_step,lambda,ood,episode\n")
-
-    def log(self, global_step, lambda_val, ood, episode):
-        with open(self.log_path, "a") as f:
-            f.write(f"{global_step},{lambda_val},{ood},{episode}\n")
-
-    def log_episode_end(self, episode):
-        with open(self.log_path, "a") as f:
-            f.write(f"EPISODE_END,{episode}\n")
+from task_utils.ood_logger import OODLogger
 
 # ==========================================================
 # 3) Helper: Load RNDDAgger from checkpoint directory
@@ -51,6 +39,7 @@ def load_rnd_dagger_agent(
     print(f"\nLoading RNDDAgger agent from: {checkpoint_dir}")
 
     # Paths
+    quantile_dataset = os.parth.join(checkpoint_dir, "expert_dataset_40.npz")
     policy_ckpt = os.path.join(checkpoint_dir, "policy_iter_40.pt")
     f_pred_ckpt = os.path.join(checkpoint_dir, "f_pred_iter_40.pt")
     f_targ_ckpt = os.path.join(checkpoint_dir, "f_targ_iter_40.pt")
@@ -89,7 +78,6 @@ def load_rnd_dagger_agent(
         batch_size=batch_size,
         logger=ood_logger,
     )
-
     return dagger, policy, f_pred, f_targ
 
 
@@ -135,14 +123,7 @@ if __name__ == "__main__":
         env=env.unwrapped
     )
 
-    checkpoint_dir = "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue"
-    # import re
-    # match = re.search(r"lambda([0-9]*\.?[0-9]+)", checkpoint_dir)
-    # if match:
-    #     lambda_threshold= float(match.group(1))
-    # else:
-    #     raise ValueError("lambda value not found in checkpoint_dir")
-    lambda_threshold= 0 
+    checkpoint_dir = "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue" 
 
     dagger, policy, f_pred, f_targ = load_rnd_dagger_agent(
         checkpoint_dir=checkpoint_dir,
@@ -150,7 +131,7 @@ if __name__ == "__main__":
         action_dim=action_dim,
         expert=expert,
         device=device,
-        lambda_threshold=lambda_threshold,
+        lambda_threshold=None,
         min_demo_time=0
     )
     lambda_threshold = dagger.lambda_threshold

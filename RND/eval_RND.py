@@ -23,7 +23,7 @@ print(f"Observation dim: {obs_dim}, Action dim: {action_dim}")
 policy = BCPolicy(obs_dim, action_dim, hidden_dims=[128, 128, 128]).to(device)
 
 # Load trained policy
-checkpoint_path = '/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue/policy_iter_40.pt'  # Or choose a specific iteration checkpoint
+checkpoint_path = "/AILAB-summer-school-2025/RND/checkpoints/[rnd_dagger]rnd_iter200_balance_True_epoch_10_alpha_0.7_minDemo70_H0_FTrue/policy_iter_90.pt"
 
 if not os.path.exists(checkpoint_path):
     print(f"\nERROR: Checkpoint not found at {checkpoint_path}")
@@ -36,6 +36,7 @@ if not os.path.exists(checkpoint_path):
     exit(1)
 
 print(f"\nLoading policy from: {checkpoint_path}")
+
 
 policy.load_state_dict(torch.load(checkpoint_path, map_location=device))
 policy.eval()  # Set to evaluation mode

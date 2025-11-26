@@ -2,7 +2,8 @@ import os
 import re
 import numpy as np
 import torch
-
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from task_utils.setting_config import device, env
 from task_utils.ExpertPolicy import ExpertPolicy
 from models.bc_policy import BCPolicy
@@ -10,6 +11,7 @@ from models.rnd_network import create_rnd_networks
 from algorithms.rnd_dagger import RNDDAgger
 import matplotlib.pyplot as plt
 from env import set_env_dataCollection
+ITER = 70
 
 def compute_a_devi(folder_path, lambda_val):
 
@@ -18,7 +20,7 @@ def compute_a_devi(folder_path, lambda_val):
     # ------------------------
     # Load checkpoint file paths
     # ------------------------
-    dataset_path = os.path.join(folder_path, "expert_dataset_40.npz")
+    dataset_path = os.path.join(folder_path, "expert_dataset_5.npz")
     policy_path  = os.path.join(folder_path, "policy_iter_5.pt")
     f_pred_path  = os.path.join(folder_path, "f_pred_iter_5.pt")
     f_targ_path  = os.path.join(folder_path, "f_targ_iter_5.pt")
@@ -102,88 +104,57 @@ def compute_a_devi(folder_path, lambda_val):
         "num_id": mask_id.sum(),
         "num_ood": mask_ood.sum()
     }
+def compute_a_devi_ID_ONLY(folder_path):
 
-# def plot(folder_paths, save_path="/AILAB-summer-school-2025/RND/results"):
-    
-#     colors = plt.cm.viridis(np.linspace(0,1,len(folder_paths)))
+    print(f"\n[INFO] Running for ITER = {ITER}")
 
-#     plt.figure(figsize=(8,4))
+    # ------------------------
+    # Load checkpoint file paths
+    # ------------------------
+    dataset_path = os.path.join(folder_path, f"expert_dataset_{ITER}.npz")
+    policy_path  = os.path.join(folder_path, f"policy_iter_{ITER}.pt")
+    f_pred_path  = os.path.join(folder_path, f"f_pred_iter_{ITER}.pt")
+    f_targ_path  = os.path.join(folder_path, f"f_targ_iter_{ITER}.pt")
+    expert = ExpertPolicy(
+        dt=set_env_dataCollection.env_cfg.sim.dt * set_env_dataCollection.env_cfg.decimation,
+        num_envs=env.unwrapped.num_envs,
+        device=device,
+        env=env.unwrapped
+    )
+    for p in [dataset_path, policy_path, f_pred_path, f_targ_path]:
+        assert os.path.exists(p), f"Missing: {p}"
 
-#     # -----------------------------------------
-#     # 1) ID Plot
-#     # -----------------------------------------
-#     plt.subplot(1,2,1)
-#     for idx, folder in enumerate(folder_paths):
-#         result = compute_a_devi(folder)
-#         print(result)
-#         diff_id = result["diff_id"]
-#         lam = result["lambda"]
+    # ------------------------
+    # Load dataset
+    # ------------------------
+    data = np.load(dataset_path)
 
-#         if len(diff_id) == 0:
-#             continue 
+    obs = torch.tensor(data["states"], dtype=torch.float32).to(device)
+    if "expert_actions" in data.files:
+        expert_action = torch.tensor(data["expert_actions"], dtype=torch.float32).to(device)
+    else:
+        with torch.no_grad():
+            expert_action = expert.compute(obs)
+    print(expert_action[0])
 
-#         p99 = np.percentile(diff_id, 99) if len(diff_id) > 0 else 0
-#         bins = np.linspace(0, p99, 40)
-#         hist, edges = np.histogram(diff_id, bins=bins)
-#         centers = (edges[:-1] + edges[1:]) / 2.
+    obs_dim = env.observation_space.shape[0]
+    action_dim = env.action_space.shape[0]
 
-#         total = len(result["diff_id"]) + len(result["diff_ood"])
-#         count_id = len(result["diff_id"])
-#         pct = (count_id / total * 100)
+    policy = BCPolicy(obs_dim, action_dim, hidden_dims=[128, 128, 128]).to(device)
 
-#         plt.plot(
-#             centers, hist,
-#             color=colors[idx],
-#             label=f"λ={lam} ({count_id}/{total}, {pct:.1f}%)"
-#         )
+    policy.load_state_dict(torch.load(policy_path, map_location=device))
+    policy.eval()
 
+    with torch.no_grad():
+        act = policy(obs)
 
-#     plt.title("ID Data - Action Deviation", fontsize=10)
-#     plt.xlabel("‖expert − action‖₂")
-#     plt.ylabel("count")
-#     plt.legend(fontsize=6)
-#     plt.grid(True)
+    diff = torch.norm(expert_action - act, dim=1).cpu().numpy()
 
+    return {
+        "diff": diff,
+        "num": len(diff)
+    }
 
-#     # -----------------------------------------
-#     # 2) OOD Plot
-#     # -----------------------------------------
-#     plt.subplot(1,2,2)
-#     for idx, folder in enumerate(folder_paths):
-#         result = compute_a_devi(folder)
-#         diff_ood = result["diff_ood"]
-#         lam = result["lambda"]
-
-#         if len(diff_ood) == 0:
-#             continue
-
-#         p99 = np.percentile(diff_ood, 99) if len(diff_ood) > 0 else 0
-#         bins = np.linspace(0, p99, 40)
-#         hist, edges = np.histogram(diff_ood, bins=bins)
-#         centers = (edges[:-1] + edges[1:]) / 2.
-
-#         total = len(result["diff_id"]) + len(result["diff_ood"])
-#         count_ood = len(result["diff_ood"])
-#         pct = (count_ood / total * 100)
-
-#         plt.plot(
-#             centers, hist,
-#             color=colors[idx],
-#             label=f"λ={lam} ({count_ood}/{total}, {pct:.1f}%)"
-#         )
-
-#     plt.title("OOD Data - Action Deviation", fontsize=10)
-#     plt.xlabel("‖expert − action‖₂")
-#     plt.ylabel("count")
-#     plt.legend(fontsize=6)
-#     plt.grid(True)
-
-#     plt.tight_layout()
-#     if torch.cuda.is_available():
-#         torch.cuda.synchronize()  
-#     plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
-#     print(f"[✓] Saved PNG to: {save_path}")
 def plot(folder_path, save_path):
 
     import os
@@ -193,10 +164,8 @@ def plot(folder_path, save_path):
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-    # ✅ 직접 지정할 lambda 리스트
     LAMBDA_LIST = [0.2, 0.1, 0.09, 0.08, 0.07]
 
-    # ✅ 색상 고정
     lambda_colors = {
         0.2:  "red",
         0.1:  "orange",
@@ -318,12 +287,72 @@ def plot(folder_path, save_path):
 
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     print(f"[✓] Saved PNG to: {save_path}")
+def plot_multi_ckpt_ID(folder_list, save_path):
 
-folder_folder_list = [
-    # "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_lambda0_minDemo70_H0_FTrue",
-    # "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter70_lambda0.1_V1",
-    # "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_lambda0.01_minDemo70_H0_FTrue",
-    # "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_lambda0.25_minDemo70_H0_FTrue/",
-    "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue/",
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    all_values = []
+    results = {}
+
+    for folder in folder_list:
+        result = compute_a_devi_ID_ONLY(folder)
+        results[folder] = result
+        all_values.extend(result["diff"])
+
+    if len(all_values) == 0:
+        print("[WARNING] No valid data")
+        return
+
+    fixed_min = 0
+    fixed_max = np.percentile(all_values, 99)
+    bins = np.linspace(fixed_min, fixed_max, 40)
+
+    # ------------------------------------
+    # 2) Plot
+    # ------------------------------------
+    plt.figure(figsize=(9, 5))
+
+    colors = plt.cm.tab10(np.linspace(0, 1, len(folder_list)))
+
+    for color, folder in zip(colors, folder_list):
+
+        result = results[folder]
+        diff = result["diff"]
+
+        hist, edges = np.histogram(diff, bins=bins)
+        centers = (edges[:-1] + edges[1:]) / 2
+
+        short_name = os.path.basename(folder)
+
+        plt.plot(
+            centers,
+            hist,
+            color=color,
+            linewidth=0.9,
+            label=f"{short_name} (N={result['num']})"
+        )
+    plt.xlim(0.05, 0.2)
+    plt.title(f"ID Action Deviation Comparison (iter: {ITER})")
+    plt.xlabel("‖ expert - policy action ‖₂")
+    plt.ylabel("Count")
+    plt.grid(True)
+    plt.legend(fontsize=8)
+
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f"[✓] Saved: {save_path}")
+
+folder_list = [
+    "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue",
+    # "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.99_minDemo70_H0_FTrue",
+    # "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_False_epoch_10_alpha_0.95_minDemo70_H0_FTrue",
+    "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_lambda_adaptive_0.99_minDemo70_H0_FTrue",
 ]
-plot("/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue/", "/AILAB-summer-school-2025/RND/results_50")
+plot_multi_ckpt_ID(
+    folder_list,
+    f"/AILAB-summer-school-2025/RND/results/ID_only_comparison_{ITER}.png"
+)
+
