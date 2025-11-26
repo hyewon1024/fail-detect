@@ -290,83 +290,83 @@ class RNDDAgger:
         return avg_reward, num_episodes
     
     def collect_data(self, env, num_steps: int, beta: float, alpha_=None):
-            """Collect data for one DAgger iteration with RND-based intervention."""
-            env.unwrapped.reset()
-            states_list = []
-            actions_list = []
-            expert_actions_list =[]
+        """Collect data for one DAgger iteration with RND-based intervention."""
+        env.unwrapped.reset()
+        states_list = []
+        actions_list = []
+        expert_actions_list =[]
+        obs, _ = env.reset()
+        self.w_counter = self.min_demo_time + 1
+        self.expert.reset_idx()
+        self.nswitch = 0
+        # Initialize history buffer if needed
+        if self.obs_history is None:
+            self._init_history_buffer(obs.shape[0], obs.shape[1])
+        adaptive_lambda, _, _ = self.quantile(alpha_)
+        t = 0
+        while t < num_steps:
+            self.global_step += 1
+            self._update_history(obs)
+            m = self.compute_ood_measure(obs)
+            m_scalar = m.mean().item()
+            self.logger.log(
+                global_step=self.global_step,
+                lambda_val=self.lambda_threshold,
+                ood=m_scalar,
+                episode=self.episode_count
+            )
+            # Decide whether to use policy or expert based on RND
+            use_expert = m.mean() > adaptive_lambda
+
+            if use_expert:
+                expert_action = self.expert.compute(obs)
+                self.nswitch += 1
+                states_list.append(obs.cpu())
+                actions_list.append(expert_action.cpu())
+                obs, _, terminated, truncated, _ = env.step(expert_action)
+                expert_actions_list.append(expert_action.cpu()) # ADD
+            else:
+                action = self.policy(obs)
+                expert_action = self.expert.compute(obs)
+                states_list.append(obs.cpu())
+                actions_list.append(expert_action.cpu())
+                obs, _, terminated, truncated, _ = env.step(action)
+                expert_actions_list.append(expert_action.cpu()) # ADD
+
+            t += 1
+        # Reset if done
+        if terminated.any() or truncated.any():
             obs, _ = env.reset()
             self.w_counter = self.min_demo_time + 1
-            self.expert.reset_idx()
-            self.nswitch = 0
-            # Initialize history buffer if needed
-            if self.obs_history is None:
-                self._init_history_buffer(obs.shape[0], obs.shape[1])
-            adaptive_lambda, _, _ = self.quantile(alpha_)
-            t = 0
-            while t < num_steps:
-                self.global_step += 1
-                self._update_history(obs)
-                m = self.compute_ood_measure(obs)
-                m_scalar = m.mean().item()
-                self.logger.log(
-                    global_step=self.global_step,
-                    lambda_val=self.lambda_threshold,
-                    ood=m_scalar,
-                    episode=self.episode_count
-                )
-                # Decide whether to use policy or expert based on RND
-                use_expert = m.mean() > adaptive_lambda
-
-                if use_expert:
-                    expert_action = self.expert.compute(obs)
-                    self.nswitch += 1
-                    states_list.append(obs.cpu())
-                    actions_list.append(expert_action.cpu())
-                    obs, _, terminated, truncated, _ = env.step(expert_action)
-                    expert_actions_list.append(expert_action.cpu()) # ADD
-                else:
-                    action = self.policy(obs)
-                    expert_action = self.expert.compute(obs)
-                    states_list.append(obs.cpu())
-                    actions_list.append(expert_action.cpu())
-                    obs, _, terminated, truncated, _ = env.step(action)
-                    expert_actions_list.append(expert_action.cpu()) # ADD
-
-                t += 1
-            # Reset if done
-            if terminated.any() or truncated.any():
-                obs, _ = env.reset()
-                self.w_counter = self.min_demo_time + 1
-                self.expert.sm_state[0] = 0
-                
-                # Reset history for done environments
-                if self.historic_context_length > 0:
-                    done_mask = terminated | truncated
-                    done_indices = torch.where(done_mask)[0]
-                    if len(done_indices) > 0:
-                        self.obs_history[done_indices] = 0.0
-                self.episode_count += 1     
-                self.logger.log_episode_end(self.episode_count)
-
-            print("current switch number from learner to expert", self.nswitch)
-            # Add to dataset
-            if len(states_list) > 0:
-                states_tensor = torch.cat(states_list, dim=0)
-                actions_tensor = torch.cat(actions_list, dim=0)
-                expert_actions_tensor = torch.cat(expert_actions_list, dim=0)
-                self.dataset.add_samples(states_tensor, actions_tensor, expert_actions_tensor)
-                states_all = torch.cat(self.dataset.states, dim=0)
-                total = states_all.shape[0]
-                device = torch.device(self.device)
-                perm = torch.randperm(total, device=device)
-                train_size = int(total * (1 - self.calib_split_ratio))
-                train_idx = perm[:train_size]
-                calib_idx = perm[train_size:]
-                self.train_states = states_all.to(device)[train_idx] if train_size > 0 else None
-                self.calib_states = states_all.to(device)[calib_idx] if calib_idx.numel() > 0 else None
+            self.expert.sm_state[0] = 0
             
-            return len(states_list)
+            # Reset history for done environments
+            if self.historic_context_length > 0:
+                done_mask = terminated | truncated
+                done_indices = torch.where(done_mask)[0]
+                if len(done_indices) > 0:
+                    self.obs_history[done_indices] = 0.0
+            self.episode_count += 1     
+            self.logger.log_episode_end(self.episode_count)
+
+        print("current switch number from learner to expert", self.nswitch)
+        # Add to dataset
+        if len(states_list) > 0:
+            states_tensor = torch.cat(states_list, dim=0)
+            actions_tensor = torch.cat(actions_list, dim=0)
+            expert_actions_tensor = torch.cat(expert_actions_list, dim=0)
+            self.dataset.add_samples(states_tensor, actions_tensor, expert_actions_tensor)
+            states_all = torch.cat(self.dataset.states, dim=0)
+            total = states_all.shape[0]
+            device = torch.device(self.device)
+            perm = torch.randperm(total, device=device)
+            train_size = int(total * (1 - self.calib_split_ratio))
+            train_idx = perm[:train_size]
+            calib_idx = perm[train_size:]
+            self.train_states = states_all.to(device)[train_idx] if train_size > 0 else None
+            self.calib_states = states_all.to(device)[calib_idx] if calib_idx.numel() > 0 else None
+        
+        return len(states_list)
     
     
     def train_policy(self, num_epochs: int = 10):
