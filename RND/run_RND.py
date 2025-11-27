@@ -30,6 +30,7 @@ RND_BALANCE = True
 EPOCH = 10
 
 # ----------change ----------------
+SEED = 2
 ALPHA = 0.5
 ALG = "Balanced_Dagger" # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
 # ----------change ----------------
@@ -51,7 +52,7 @@ elif ALG =="Safe_Dagger":
     LAMBDA_THRESHOLD = 0
     
 # Create checkpoint folder name based on hyperparameters
-checkpoint_dir = f'checkpoints/[{ALG}]rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_epoch_{EPOCH}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
+checkpoint_dir = f'checkpoints/[{ALG}]rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_epoch_{EPOCH}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}_seed{SEED}'
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 print("="*60)
@@ -87,7 +88,8 @@ f_targ, f_pred = create_rnd_networks(
     historic_context_length=HISTORIC_CONTEXT_LENGTH,
     output_dim=32, 
     device=device,
-    freeze=FREEZE
+    freeze=FREEZE,
+    seed = SEED,
 )
 
 
@@ -195,7 +197,7 @@ for iteration in range(K_ITERATIONS):
         num_epochs=EPOCH,
         n_proj=8,
         eps=0.1,
-        seed=0,
+        seed=SEED,
         )
     else:
         rnd_loss = dagger.train_rnd(num_epochs=5)
@@ -237,7 +239,8 @@ for iteration in range(K_ITERATIONS):
 
     if (iteration + 1) % 5 == 0:
         import glob 
-        old_files = glob.glob(os.path.join(checkpoint_dir, "expert_dataset_*.npz"))
+        pattern = os.path.join(glob.escape(checkpoint_dir), "expert_dataset_*.npz")
+        old_files = glob.glob(pattern)
         for f in old_files:
             os.remove(f) # remove old files 
 

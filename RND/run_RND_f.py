@@ -24,8 +24,8 @@ INITIAL_EXPERT_STEPS = 0
 EVAL_STEPS = 100  # Steps for policy evaluation
 LAMBDA_THRESHOLD = 0.01
 
-iter_num = 35  # most recent stopping point
-folder_path = "/AILAB-summer-school-2025/RND/checkpoints/[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.5_minDemo70_H0_FTrue"
+iter_num = 95  # most recent stopping point
+folder_path = "/AILAB-summer-school-2025/RND/checkpoints/restored_[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.5_minDemo70_H0_FTrue"
 folder_name = os.path.basename(folder_path)
 
 # 정규식으로 파라미터 추출
@@ -37,6 +37,7 @@ MIN_DEMO_TIME = int(re.search(r"minDemo(\d+)", folder_name).group(1))
 HISTORIC_CONTEXT_LENGTH = int(re.search(r"H(\d+)", folder_name).group(1))
 FREEZE = re.search(r"F(True|False)", folder_name).group(1) == "True"
 ALG =re.search(r"\[(.*?)\]", folder_name).group(1)
+SEED = int(re.search(r'seed(\d+)', folder_name).group(1))
 
 print("===== Parsed Parameters from Folder Name =====")
 print(f"K_ITERATIONS               : {K_ITERATIONS}")
@@ -47,10 +48,11 @@ print(f"MIN_DEMO_TIME              : {MIN_DEMO_TIME}")
 print(f"HISTORIC_CONTEXT_LENGTH   : {HISTORIC_CONTEXT_LENGTH}")
 print(f"FREEZE                     : {FREEZE}")
 print("ALGORITHM                    :", ALG)
+print("SEED                           :", SEED)
 print("==============================================")
 
  # path where the model to be restored (resumed)
-restored_folder_name = f"restored_{folder_name}"
+restored_folder_name = f"{folder_name}"
 checkpoint_dir = os.path.join(os.path.dirname(folder_path), restored_folder_name)
 os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -87,7 +89,8 @@ f_targ, f_pred = create_rnd_networks(
     historic_context_length=HISTORIC_CONTEXT_LENGTH,
     output_dim=32, 
     device=device,
-    freeze=FREEZE
+    freeze=FREEZE,
+    seed= SEED,
 )
 
 policy.load_state_dict(
@@ -217,7 +220,7 @@ for iteration in range(start_iter, K_ITERATIONS+1):
         num_epochs=EPOCH,
         n_proj=8,
         eps=0.1,
-        seed=0,
+        seed=SEED,
         )
     else:
         rnd_loss = dagger.train_rnd(num_epochs=5)
@@ -257,6 +260,11 @@ for iteration in range(start_iter, K_ITERATIONS+1):
         print(f"\nSaved f_target checkpoint at iteration {iteration + 1}")
         
     if (iteration + 1) % 5 == 0:
+        import glob 
+        pattern = os.path.join(glob.escape(checkpoint_dir), "expert_dataset_*.npz")
+        old_files = glob.glob(pattern)
+        for f in old_files:
+            os.remove(f) # remove old files 
         np.savez_compressed(
             f"{checkpoint_dir}/expert_dataset_{iteration + 1}.npz",
             states=torch.cat(dagger.dataset.states).numpy(),

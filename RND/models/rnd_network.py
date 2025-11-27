@@ -1,6 +1,16 @@
 import torch
 import torch.nn as nn
+import numpy as np
+import random
 
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    
 class RNDNetwork(nn.Module):
     """Random Network Distillation - for OOD detection"""
     
@@ -46,7 +56,7 @@ class RNDPredictor(nn.Module):
         return self.network(obs)
 
 
-def create_rnd_networks(obs_dim: int, historic_context_length: int = 0, output_dim: int = 32, device: str = "cpu", freeze: bool = True):
+def create_rnd_networks(obs_dim: int, historic_context_length: int = 0, output_dim: int = 32, device: str = "cpu", freeze: bool = True, seed: int = None):
     """
     Create RND target (fixed) and predictor (trainable) networks.
     
@@ -60,6 +70,11 @@ def create_rnd_networks(obs_dim: int, historic_context_length: int = 0, output_d
     # If H=0: input_dim = obs_dim
     # If H=1: input_dim = obs_dim + obs_dim = 2 * obs_dim
     # If H=2: input_dim = obs_dim + 2 * obs_dim = 3 * obs_dim
+
+    if seed is not None:
+        set_seed(seed)
+        print(f"[RND] Seed fixed to {seed}")
+
     total_input_dim = obs_dim * (1 + historic_context_length)
     
     print(f"Creating RND networks with input_dim={total_input_dim} (obs_dim={obs_dim}, H={historic_context_length})")
