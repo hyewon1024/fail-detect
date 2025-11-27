@@ -23,7 +23,7 @@ print(f"Observation dim: {obs_dim}, Action dim: {action_dim}")
 policy = BCPolicy(obs_dim, action_dim, hidden_dims=[128, 128, 128]).to(device)
 
 # Load trained policy
-checkpoint_path = "/AILAB-summer-school-2025/RND/checkpoints/[rnd_dagger]rnd_iter200_balance_True_epoch_10_alpha_0.7_minDemo70_H0_FTrue/policy_iter_90.pt"
+checkpoint_path = "/AILAB-summer-school-2025/RND/checkpoints/[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.7_minDemo70_H0_FTrue/policy_iter_115.pt"
 
 if not os.path.exists(checkpoint_path):
     print(f"\nERROR: Checkpoint not found at {checkpoint_path}")
@@ -73,6 +73,7 @@ try:
             print(f"Step: {step_count}, Episodes: {episode_count}, Successes: {success_count}, Avg Reward: {avg_reward:.3f}")
         
         # Check if any environment is done
+        
         done = terminated | truncated
         if done.any():
             episode_count += done.sum().item()

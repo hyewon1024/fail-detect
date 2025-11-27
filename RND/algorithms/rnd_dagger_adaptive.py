@@ -323,7 +323,7 @@ class RNDDAgger:
             if self.alg =="pure_dagger":
                 use_expert = random.random() < beta
             else: 
-                use_expert = m.mean() > adaptive_lambda
+                use_expert = m.mean() > max(adaptive_lambda, 0.01) 
 
             if use_expert:
                 expert_action = self.expert.compute(obs)

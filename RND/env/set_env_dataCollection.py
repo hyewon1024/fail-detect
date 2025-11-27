@@ -40,7 +40,7 @@ num_envs = 1 #please check headless. or it may cause a probnlem
 
 # else:
 #     args_cli.headless = False
-args_cli.headless =True # Env Off 
+args_cli.headless = False # Env Off 
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -51,6 +51,7 @@ from isaaclab.managers import SceneEntityCfg
 
 # 커스텀 환경 시뮬레이션 환경 config 파일 임포트
 from env.PickAndPlace_env_cfg import PickAndPlaceEnvCfg
+
 # gymnasium 라이브러리를 활용한 시뮬레이션 환경 선언
 from env.config.franka.ik_abs_env_cfg import FrankaCubePickAndPlaceEnvCfg 
 

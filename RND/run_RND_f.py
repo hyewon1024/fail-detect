@@ -12,7 +12,6 @@ import os
 import json
 from collections.abc import Sequence
 from task_utils.ood_logger import OODLogger
-from task_utils.functional_cp import apply_functional_cp
 import numpy as np 
 # Seed
 set_seed(42)
@@ -28,7 +27,7 @@ MIN_DEMO_TIME = 70
 HISTORIC_CONTEXT_LENGTH = 0  # H: 0, 1, 2, ... (number of past observations)
 FREEZE = True
 RND_BALANCE = True
-ALPHA = 0.5
+ALPHA = 0.7
 EPOCH = 10
 #--------
 FUNCTIONAL_CP = False
@@ -73,8 +72,8 @@ f_targ, f_pred = create_rnd_networks(
     device=device,
     freeze=FREEZE
 )
-iter_num = 45
-folder_path = "/AILAB-summer-school-2025/RND/checkpoints/rnd_iter100_balance_True_epoch_10_alpha_0.95_minDemo70_H0_FTrue"
+iter_num = 60
+folder_path = "/AILAB-summer-school-2025/RND/checkpoints/[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.7_minDemo70_H0_FTrue"
 policy.load_state_dict(
     torch.load(os.path.join(folder_path, f"policy_iter_{iter_num}.pt"), 
     map_location=device)
@@ -105,6 +104,7 @@ dagger = RNDDAgger(
     rnd_lr=1e-4,
     batch_size=256,
     logger=ood_logger, # ood logger 
+    alg = "d"
 )
 data = np.load(os.path.join(folder_path, f"expert_dataset_{iter_num}.npz"))
 
@@ -112,7 +112,7 @@ states = data["states"]
 actions = data["actions"]
 dagger.dataset.states.append(torch.tensor(states))
 dagger.dataset.actions.append(torch.tensor(actions))
-dagger.dataset.expert_actions.append(torch.tensor(data["expert_actions"], dtype=torch.float32))
+# dagger.dataset.expert_actions.append(torch.tensor(data["expert_actions"], dtype=torch.float32))
 print("Dataset length:", len(dagger.dataset))
 # Save hyperparameters
 hyperparams = {
@@ -217,32 +217,6 @@ for iteration in range(start_iter, K_ITERATIONS+1):
     results['eval_episodes'].append(eval_episodes)
 
 
-    # # ----------------------------------------------------
-    # # FUNCTIONAL CONFORMAL PREDICTION (OPTIONAL)
-    # # ----------------------------------------------------
-    # if FUNCTIONAL_CP:
-
-    #     print("\n[Functional CP] Computing prediction band...")
-
-    #     traj_data = torch.cat(dagger.dataset.states).cpu().numpy()  
-    #     # shape: (N, obs_dim)
-
-    #     cp_result = apply_functional_cp(
-    #         trajectory_data=traj_data,
-    #         alpha=CP_ALPHA
-    #     )
-
-    #     np.savez_compressed(
-    #         f"{checkpoint_dir}/functional_cp_iter_{iteration+1}.npz",
-    #         mean=cp_result["mean"],
-    #         upper=cp_result["upper"],
-    #         lower=cp_result["lower"]
-    #     )
-
-    #     print("[Functional CP] Band saved")
-
-    # # ----------------------------------------------------
-
     print(f"\nIteration {iteration + 1} Summary:")
     print(f"  Eval Reward: {eval_reward:.4f}")
     print(f"  Dataset Size: {dataset_size}")
@@ -266,15 +240,14 @@ for iteration in range(start_iter, K_ITERATIONS+1):
         torch.save(f_targ.state_dict(), f'{checkpoint_dir}/f_targ_iter_{iteration + 1}.pt')
         print(f"\nSaved f_target checkpoint at iteration {iteration + 1}")
         
-    # if (iteration + 1) % 5 == 0:
-    #     np.savez_compressed(
-    #         f"{checkpoint_dir}/expert_dataset_{iteration + 1}.npz",
-    #         states=torch.cat(dagger.dataset.states).numpy(),
-    #         actions=torch.cat(dagger.dataset.actions).numpy(),
-    #         expert_actions=torch.cat(dagger.dataset.expert_actions).numpy()
-    #     )
-        # print(f"\nSaved dataset at iteration {iteration + 1}")
-
+    if (iteration + 1) % 5 == 0:
+        np.savez_compressed(
+            f"{checkpoint_dir}/expert_dataset_{iteration + 1}.npz",
+            states=torch.cat(dagger.dataset.states).numpy(),
+            actions=torch.cat(dagger.dataset.actions).numpy(),
+            expert_actions=torch.cat(dagger.dataset.expert_actions).numpy()
+        )
+        print(f"\nSaved dataset at iteration {iteration + 1}")
 
     # Save results after each iteration
     with open(f'{checkpoint_dir}/results.json', 'w') as f:

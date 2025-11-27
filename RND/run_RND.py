@@ -236,11 +236,22 @@ for iteration in range(K_ITERATIONS):
         print(f"\nSaved f_target checkpoint at iteration {iteration + 1}")
 
     if (iteration + 1) % 5 == 0:
+        import glob 
+        old_files = glob.glob(os.path.join(checkpoint_dir, "expert_dataset_*.npz"))
+        for f in old_files:
+            os.remove(f) # remove old files 
+            
+        states = torch.cat(dagger.dataset.states, dim=0)
+        actions = torch.cat(dagger.dataset.actions, dim=0)
+        expert_actions = torch.cat(dagger.dataset.expert_actions, dim=0)
+
+        save_path = f"{checkpoint_dir}/expert_dataset_{iteration + 1}.npz"
+
         np.savez_compressed(
-            f"{checkpoint_dir}/expert_dataset_{iteration + 1}.npz",
-            states=torch.cat(dagger.dataset.states).numpy(),
-            actions=torch.cat(dagger.dataset.actions).numpy(),
-            expert_actions=torch.cat(dagger.dataset.expert_actions).numpy()
+            save_path,
+            states=states.cpu().numpy(),
+            actions=actions.cpu().numpy(),
+            expert_actions=expert_actions.cpu().numpy()
         )
         print(f"\nSaved dataset at iteration {iteration + 1}")
 
