@@ -127,10 +127,22 @@ class RNDDAgger:
         self.f_pred.eval()
         self.f_targ.eval()
 
+        # Compute scores in chunks, moving only batches to device to avoid OOM.
+        scores = []
+        calib_loader = DataLoader(TensorDataset(calib_states), batch_size=8192, shuffle=False)
         with torch.no_grad():
-            pred = self.f_pred(calib_states)
-            targ = self.f_targ(calib_states)
-            scores = torch.norm(targ - pred, dim=-1) ** 2
+            for (batch_states,) in calib_loader:
+                batch_states = batch_states.to(self.device, non_blocking=True)
+                pred = self.f_pred(batch_states)
+                targ = self.f_targ(batch_states)
+                batch_scores = torch.norm(targ - pred, dim=-1) ** 2
+                scores.append(batch_scores.cpu())
+
+        if not scores:
+            print("No calibration data available, using existing lambda threshold")
+            return self.lambda_threshold, self.lambda_threshold, self.lambda_threshold
+
+        scores = torch.cat(scores, dim=0)
 
         if was_pred_training:
             self.f_pred.train()
@@ -224,15 +236,16 @@ class RNDDAgger:
             states_tensor = torch.cat(states_list, dim=0)
             actions_tensor = torch.cat(actions_list, dim=0)
             self.dataset.add_samples(states_tensor, actions_tensor, actions_tensor)
-            states_all = torch.cat(self.dataset.states, dim=0)
+
+            # Keep the aggregated dataset on CPU to avoid blowing up GPU memory.
+            states_all = torch.cat(self.dataset.states, dim=0).cpu()
             total = states_all.shape[0]
-            device = torch.device(self.device)
-            perm = torch.randperm(total, device=device)
+            perm = torch.randperm(total)
             train_size = int(total * (1 - self.calib_split_ratio))
             train_idx = perm[:train_size]
             calib_idx = perm[train_size:]
-            self.train_states = states_all.to(device)[train_idx] if train_size > 0 else None
-            self.calib_states = states_all.to(device)[calib_idx] if calib_idx.numel() > 0 else None
+            self.train_states = states_all[train_idx] if train_size > 0 else None
+            self.calib_states = states_all[calib_idx] if calib_idx.numel() > 0 else None
         
         print(f"Finished collecting {len(states_list)} expert samples, rewards {rewards}")
         return len(states_list)
@@ -366,15 +379,16 @@ class RNDDAgger:
             actions_tensor = torch.cat(actions_list, dim=0)
             expert_actions_tensor = torch.cat(expert_actions_list, dim=0)
             self.dataset.add_samples(states_tensor, actions_tensor, expert_actions_tensor)
-            states_all = torch.cat(self.dataset.states, dim=0)
+
+            # Keep aggregated tensors on CPU; move to GPU only per-batch during training.
+            states_all = torch.cat(self.dataset.states, dim=0).cpu()
             total = states_all.shape[0]
-            device = torch.device(self.device)
-            perm = torch.randperm(total, device=device)
+            perm = torch.randperm(total)
             train_size = int(total * (1 - self.calib_split_ratio))
             train_idx = perm[:train_size]
             calib_idx = perm[train_size:]
-            self.train_states = states_all.to(device)[train_idx] if train_size > 0 else None
-            self.calib_states = states_all.to(device)[calib_idx] if calib_idx.numel() > 0 else None
+            self.train_states = states_all[train_idx] if train_size > 0 else None
+            self.calib_states = states_all[calib_idx] if calib_idx.numel() > 0 else None
         
         return len(states_list)
     
@@ -434,6 +448,7 @@ class RNDDAgger:
 
         for epoch in range(num_epochs):
             for (states,) in dataloader:
+                states = states.to(device, non_blocking=True)
 
                 N, D = states.shape
                 idx = torch.randint(0, N, (self.batch_size,), device=device)
@@ -501,6 +516,7 @@ class RNDDAgger:
         self.f_pred.train()
         for epoch in range(num_epochs):
             for (states,) in dataloader:
+                states = states.to(self.device, non_blocking=True)
                 # RND loss
                 pred = self.f_pred(states)
                 with torch.no_grad():
