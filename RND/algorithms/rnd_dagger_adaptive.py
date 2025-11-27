@@ -51,6 +51,7 @@ class RNDDAgger:
         # Tracking
         self.nswitch = 0
         self.w_counter = self.min_demo_time + 1
+
         self.logger = logger
         self.global_step = 0
         self.episode_count = 1
@@ -313,12 +314,13 @@ class RNDDAgger:
             self._update_history(obs)
             m = self.compute_ood_measure(obs)
             m_scalar = m.mean().item()
-            self.logger.log(
-                global_step=self.global_step,
-                lambda_val=max(adaptive_lambda, 0.01),
-                ood=m_scalar,
-                episode=self.episode_count
-            )
+            if self.logger is not None:
+                self.logger.log(
+                    global_step=self.global_step,
+                    lambda_val=max(adaptive_lambda, 0.01),
+                    ood=m_scalar,
+                    episode=self.episode_count
+                )
             # Decide whether to use policy or expert based on RND
             if self.alg =="pure_dagger":
                 use_expert = random.random() < beta
@@ -353,8 +355,9 @@ class RNDDAgger:
                 done_indices = torch.where(done_mask)[0]
                 if len(done_indices) > 0:
                     self.obs_history[done_indices] = 0.0
-            self.episode_count += 1     
-            self.logger.log_episode_end(self.episode_count)
+            self.episode_count += 1 
+            if self.logger is not None:   
+                self.logger.log_episode_end(self.episode_count)
 
         print("current switch number from learner to expert", self.nswitch)
         # Add to dataset

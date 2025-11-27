@@ -11,7 +11,7 @@ from algorithms.rnd_dagger_adaptive import RNDDAgger
 import os
 import json
 from collections.abc import Sequence
-from task_utils.ood_logger import OODLogger
+# from task_utils.ood_logger import OODLogger
 
 # Seed
 set_seed(42)
@@ -67,7 +67,7 @@ print("="*60)
 # Get dimensions from environment
 obs_dim = env.observation_space.shape[0]  # 25
 action_dim = env.action_space.shape[0]    # 8
-ood_logger = OODLogger("/AILAB-summer-school-2025/RND/ood_log.csv")
+# ood_logger = OODLogger("/AILAB-summer-school-2025/RND/ood_log.csv")
 
 print(f"\nObservation dim: {obs_dim}, Action dim: {action_dim}")
 
@@ -104,7 +104,7 @@ dagger = RNDDAgger(
     policy_lr=3e-4,
     rnd_lr=1e-4,
     batch_size=256,
-    logger=ood_logger, # ood logger 
+    logger=None, # ood logger 
     alg = ALG,
 )
 
