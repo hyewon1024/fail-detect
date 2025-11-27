@@ -10,33 +10,50 @@ from models.rnd_network import create_rnd_networks
 from algorithms.rnd_dagger_adaptive import RNDDAgger
 import os
 import json
+import re
 from collections.abc import Sequence
-from task_utils.ood_logger import OODLogger
+# from task_utils.ood_logger import OODLogger
 import numpy as np 
 # Seed
 set_seed(42)
 
-# Hyperparameters
-K_ITERATIONS = 500
+# # Hyperparameters
+
 STEPS_PER_ITERATION = 2000
 INITIAL_EXPERT_STEPS = 0
 EVAL_STEPS = 100  # Steps for policy evaluation
-
 LAMBDA_THRESHOLD = 0.01
-MIN_DEMO_TIME = 70
-HISTORIC_CONTEXT_LENGTH = 0  # H: 0, 1, 2, ... (number of past observations)
-FREEZE = True
-RND_BALANCE = True
-ALPHA = 0.7
-EPOCH = 10
-#--------
-FUNCTIONAL_CP = False
-CP_ALPHA = 0.05
-#--------
 
-# Create checkpoint folder name based on hyperparameters
-checkpoint_dir = f'checkpoints/[video]rnd_iter{K_ITERATIONS}_balance_{RND_BALANCE}_epoch_{EPOCH}_alpha_{ALPHA}_minDemo{MIN_DEMO_TIME}_H{HISTORIC_CONTEXT_LENGTH}_F{FREEZE}'
+iter_num = 35  # most recent stopping point
+folder_path = "/AILAB-summer-school-2025/RND/checkpoints/[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.5_minDemo70_H0_FTrue"
+folder_name = os.path.basename(folder_path)
+
+# 정규식으로 파라미터 추출
+K_ITERATIONS = int(re.search(r"iter(\d+)", folder_name).group(1))
+RND_BALANCE = re.search(r"balance_(True|False)", folder_name).group(1) == "True"
+EPOCH = int(re.search(r"epoch_(\d+)", folder_name).group(1))
+ALPHA  = float(re.search(r"alpha_([0-9.]+)", folder_name).group(1))
+MIN_DEMO_TIME = int(re.search(r"minDemo(\d+)", folder_name).group(1))
+HISTORIC_CONTEXT_LENGTH = int(re.search(r"H(\d+)", folder_name).group(1))
+FREEZE = re.search(r"F(True|False)", folder_name).group(1) == "True"
+ALG =re.search(r"\[(.*?)\]", folder_name).group(1)
+
+print("===== Parsed Parameters from Folder Name =====")
+print(f"K_ITERATIONS               : {K_ITERATIONS}")
+print(f"RND_BALANCE                : {RND_BALANCE}")
+print(f"EPOCH                      : {EPOCH}")
+print(f"ALPHA                      : {ALPHA}")
+print(f"MIN_DEMO_TIME              : {MIN_DEMO_TIME}")
+print(f"HISTORIC_CONTEXT_LENGTH   : {HISTORIC_CONTEXT_LENGTH}")
+print(f"FREEZE                     : {FREEZE}")
+print("ALGORITHM                    :", ALG)
+print("==============================================")
+
+ # path where the model to be restored (resumed)
+restored_folder_name = f"restored_{folder_name}"
+checkpoint_dir = os.path.join(os.path.dirname(folder_path), restored_folder_name)
 os.makedirs(checkpoint_dir, exist_ok=True)
+
 
 print("="*60)
 print("RND-DAgger Training")
@@ -51,7 +68,7 @@ print("="*60)
 # Get dimensions from environment
 obs_dim = env.observation_space.shape[0]  # 25
 action_dim = env.action_space.shape[0]    # 8
-ood_logger = OODLogger("/AILAB-summer-school-2025/RND/ood_log.csv")
+# ood_logger = OODLogger("/AILAB-summer-school-2025/RND/ood_log.csv")
 
 print(f"\nObservation dim: {obs_dim}, Action dim: {action_dim}")
 
@@ -72,8 +89,7 @@ f_targ, f_pred = create_rnd_networks(
     device=device,
     freeze=FREEZE
 )
-iter_num = 20
-folder_path = "/AILAB-summer-school-2025/RND/checkpoints/[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.7_minDemo70_H0_FTrue"
+
 policy.load_state_dict(
     torch.load(os.path.join(folder_path, f"policy_iter_{iter_num}.pt"), 
     map_location=device)
@@ -103,8 +119,8 @@ dagger = RNDDAgger(
     policy_lr=3e-4,
     rnd_lr=1e-4,
     batch_size=256,
-    logger=ood_logger, # ood logger 
-    alg = "d"
+    logger=None, # ood logger 
+    alg = ALG
 )
 data = np.load(os.path.join(folder_path, f"expert_dataset_{iter_num}.npz"))
 
