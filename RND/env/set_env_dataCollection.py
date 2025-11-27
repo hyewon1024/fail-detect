@@ -40,7 +40,7 @@ num_envs = 1 #please check headless. or it may cause a probnlem
 
 # else:
 #     args_cli.headless = False
-args_cli.headless = False # Env Off 
+args_cli.headless = True # Env Off 
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app

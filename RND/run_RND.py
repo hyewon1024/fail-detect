@@ -30,7 +30,7 @@ RND_BALANCE = True
 EPOCH = 10
 
 # ----------change ----------------
-ALPHA = 0.7
+ALPHA = 0.5
 ALG = "Balanced_Dagger" # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
 # ----------change ----------------
 
@@ -240,7 +240,7 @@ for iteration in range(K_ITERATIONS):
         old_files = glob.glob(os.path.join(checkpoint_dir, "expert_dataset_*.npz"))
         for f in old_files:
             os.remove(f) # remove old files 
-            
+
         states = torch.cat(dagger.dataset.states, dim=0)
         actions = torch.cat(dagger.dataset.actions, dim=0)
         expert_actions = torch.cat(dagger.dataset.expert_actions, dim=0)

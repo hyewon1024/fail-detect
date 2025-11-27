@@ -315,7 +315,7 @@ class RNDDAgger:
             m_scalar = m.mean().item()
             self.logger.log(
                 global_step=self.global_step,
-                lambda_val=self.lambda_threshold,
+                lambda_val=max(adaptive_lambda, 0.01),
                 ood=m_scalar,
                 episode=self.episode_count
             )

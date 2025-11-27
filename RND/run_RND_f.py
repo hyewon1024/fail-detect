@@ -72,7 +72,7 @@ f_targ, f_pred = create_rnd_networks(
     device=device,
     freeze=FREEZE
 )
-iter_num = 60
+iter_num = 20
 folder_path = "/AILAB-summer-school-2025/RND/checkpoints/[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.7_minDemo70_H0_FTrue"
 policy.load_state_dict(
     torch.load(os.path.join(folder_path, f"policy_iter_{iter_num}.pt"), 
