@@ -4,7 +4,7 @@
 K_ITER=200
 STEPS_PER_ITER=2000
 INIT_STEPS=2000
-EVAL_ITERS=5          #change steps to iters
+EVAL_ITERS=0
 LAMBDA=0.01
 MIN_DEMO=70
 HIST=0
@@ -37,7 +37,7 @@ echo "SEED               : $SEED"
 echo "K_ITER             : $K_ITER"
 echo "STEPS_PER_ITER     : $STEPS_PER_ITER"
 echo "INIT_STEPS         : $INIT_STEPS"
-echo "EVAL_STEPS         : $EVAL_ITERS"
+echo "EVAL_ITERS         : $EVAL_ITERS"
 echo "LAMBDA_THRESHOLD   : $LAMBDA"
 echo "MIN_DEMO_TIME      : $MIN_DEMO"
 echo "HISTORIC_CONTEXT   : $HIST"
@@ -52,7 +52,7 @@ $BETA_ARG \
 --k_iter $K_ITER \
 --steps_per_iter $STEPS_PER_ITER \
 --init_steps $INIT_STEPS \
---eval_steps $EVAL_STEPS \
+--eval_iters $EVAL_ITERS \
 --lambda_th $LAMBDA \
 --min_demo $MIN_DEMO \
 --hist $HIST \

@@ -7,7 +7,7 @@ MODE="resume"          # train or resume
 K_ITER=200
 STEPS_PER_ITER=2000
 INIT_STEPS=2000
-EVAL_STEPS=100
+EVAL_ITERS=100
 LAMBDA=0.01
 MIN_DEMO=70
 HIST=0
@@ -38,7 +38,7 @@ if [ "$MODE" = "train" ]; then
     --k_iter $K_ITER \
     --steps_per_iter $STEPS_PER_ITER \
     --init_steps $INIT_STEPS \
-    --eval_steps $EVAL_STEPS \
+    --eval_iters $EVAL_ITERS \
     --lambda_th $LAMBDA \
     --min_demo $MIN_DEMO \
     --hist $HIST \
