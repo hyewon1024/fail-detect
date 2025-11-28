@@ -14,51 +14,57 @@ from collections.abc import Sequence
 # from task_utils.ood_logger import OODLogger
 
 # Hyperparameters
-import argparse
-
+import argparse, shlex
 parser = argparse.ArgumentParser()
-parser.add_argument("--k_iter", type=int, default=200)
-parser.add_argument("--steps_per_iter", type=int, default=2000)
-parser.add_argument("--init_steps", type=int, default=2000)
-parser.add_argument("--eval_iters", type=int, default=5)
-parser.add_argument("--lambda_th", type=float, default=0.01)
-parser.add_argument("--min_demo", type=int, default=70)
-parser.add_argument("--hist", type=int, default=0)
-parser.add_argument("--freeze", action="store_true")
-parser.add_argument("--no_freeze", action="store_false", dest="freeze")
-parser.set_defaults(freeze=True)
-parser.add_argument("--epoch", type=int, default=10)
-parser.add_argument("--seed", type=int, default=13)
-parser.add_argument("--alpha", type=float, default=0.5)
-parser.add_argument("--alg", type=str, default="Balanced_Dagger")
-parser.add_argument("--beta", type=float, default=None)
-parser.add_argument("--tau", type=float, default=0.1)
+
+parser.add_argument("--kit_args", type=str, default="")
+args = parser.parse_args()
+
+kit_parser = argparse.ArgumentParser()
+
+kit_parser.add_argument("--k_iter", type=int, default=200)
+kit_parser.add_argument("--steps_per_iter", type=int, default=2000)
+kit_parser.add_argument("--init_steps", type=int, default=2000)
+kit_parser.add_argument("--eval_iters", type=int, default=5)
+kit_parser.add_argument("--lambda_th", type=float, default=0.01)
+kit_parser.add_argument("--min_demo", type=int, default=70)
+kit_parser.add_argument("--hist", type=int, default=0)
+kit_parser.add_argument("--freeze", action="store_true")
+kit_parser.add_argument("--no_freeze", action="store_false", dest="freeze")
+kit_parser.set_defaults(freeze=True)
+kit_parser.add_argument("--epoch", type=int, default=10)
+kit_parser.add_argument("--seed", type=int, default=13)
+kit_parser.add_argument("--alpha", type=float, default=0.5)
+kit_parser.add_argument("--alg", type=str, default="Balanced_Dagger")
+kit_parser.add_argument("--beta", type=float, default=None)
+kit_parser.add_argument("--tau", type=float, default=0.1)
+
+kit_argv = shlex.split(args.kit_args)
+kit_args = kit_parser.parse_args(kit_argv)
+
+# args, unknown = parser.parse_known_args()
+
+# print("\n[DEBUG] User args parsed by RND script:")
+# print(args)
+# print("[DEBUG] Unknown (Isaac-related) args:")
+# print(unknown)
 
 
-args, unknown = parser.parse_known_args()
+K_ITERATIONS = kit_args.k_iter
+STEPS_PER_ITERATION = kit_args.steps_per_iter
+INITIAL_EXPERT_STEPS = kit_args.init_steps
+EVAL_ITERS = kit_args.eval_iters
 
-print("\n[DEBUG] User args parsed by RND script:")
-print(args)
-print("[DEBUG] Unknown (Isaac-related) args:")
-print(unknown)
-
-
-K_ITERATIONS = args.k_iter
-STEPS_PER_ITERATION = args.steps_per_iter
-INITIAL_EXPERT_STEPS = args.init_steps
-EVAL_ITERS = args.eval_iters
-
-LAMBDA_THRESHOLD = args.lambda_th
-MIN_DEMO_TIME = args.min_demo
-HISTORIC_CONTEXT_LENGTH = args.hist
-FREEZE = bool(args.freeze)
-EPOCH = args.epoch
-
-SEED = args.seed
-ALPHA = args.alpha
-ALG = args.alg               # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
-BETA = args.beta             # Only for Pure DAgger!!
-TAU = args.tau               # only for safe DAgger
+LAMBDA_THRESHOLD = kit_args.lambda_th
+MIN_DEMO_TIME = kit_args.min_demo
+HISTORIC_CONTEXT_LENGTH = kit_args.hist
+FREEZE = bool(kit_args.freeze)
+EPOCH = kit_args.epoch
+SEED = kit_args.seed
+ALPHA = kit_args.alpha
+ALG = kit_args.alg               # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
+BETA = kit_args.beta             # Only for Pure DAgger!!
+TAU = kit_args.tau               # only for safe DAgger
 
 if ALG == "Pure_Dagger":
     RND_BALANCE = False
@@ -145,6 +151,13 @@ hyperparams = {
     'k_iterations': K_ITERATIONS,
     'steps_per_iteration': STEPS_PER_ITERATION,
     'initial_expert_steps': INITIAL_EXPERT_STEPS,
+    'eval_iters' : EVAL_ITERS,
+    'epoch' : EPOCH,
+    'seed' : SEED,
+    'alpha' : ALPHA,
+    'ALG' : ALG,
+    'beta' : BETA,
+    'tau' : TAU,
     'obs_dim': obs_dim,
     'action_dim': action_dim,
 }
