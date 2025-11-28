@@ -1,49 +1,35 @@
 import torch
 from skrl.utils import set_seed
-
 from env import set_env_dataCollection
 from task_utils.setting_config import device, env
 from task_utils.ExpertPolicy import ExpertPolicy
-
 from models.bc_policy import BCPolicy
 from models.rnd_network import create_rnd_networks
 from algorithms.rnd_dagger_adaptive import RNDDAgger
-import os
 import json
-import re
 from collections.abc import Sequence
 # from task_utils.ood_logger import OODLogger
-import numpy as np 
-
-# # Hyperparameter
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--ckpt_folder", type=str, required=True)
-parser.add_argument("--iter_num", type=int, required=True)
-
-args, unknown = parser.parse_known_args()
-
-print("[DEBUG] argparse args:", args)
-print("[DEBUG] unknown args:", unknown)
-
-if args.ckpt_folder is None and "--ckpt_folder" in unknown:
-    idx = unknown.index("--ckpt_folder")
-    args.ckpt_folder = unknown[idx + 1]
-
-if args.iter_num is None and "--iter_num" in unknown:
-    idx = unknown.index("--iter_num")
-    args.iter_num = int(unknown[idx + 1])
-
-folder_path = args.ckpt_folder
-iter_num = args.iter_num
-folder_name = os.path.basename(folder_path)
-
+import numpy as np
+import os
+import re
+kit_args = os.environ.get("KIT_ARGS", "")
+print("[DEBUG] KIT_ARGS =", kit_args)
+def get_arg(name, default=None, type_fn=str):
+    pattern = rf"{name}\s+([^\s]+)"
+    match = re.search(pattern, kit_args)
+    if match:
+        return type_fn(match.group(1))
+    return default
+ckpt_folder = get_arg("--ckpt_folder", None, str)
+iter_num = get_arg("--iter_num", None, int)
+if ckpt_folder is None or iter_num is None:
+    raise ValueError(f":x: Failed to parse args from KIT_ARGS: {kit_args}")
+folder_path = ckpt_folder
+folder_name = os.path.basename(ckpt_folder)
 STEPS_PER_ITERATION = 2000
 INITIAL_EXPERT_STEPS = 0
 EVAL_STEPS = 100  # Steps for policy evaluation
 LAMBDA_THRESHOLD = 0.01
-
 # 정규식으로 파라미터 추출
 K_ITERATIONS = int(re.search(r"iter(\d+)", folder_name).group(1))
 RND_BALANCE = re.search(r"balance_(True|False)", folder_name).group(1) == "True"
@@ -54,7 +40,6 @@ HISTORIC_CONTEXT_LENGTH = int(re.search(r"H(\d+)", folder_name).group(1))
 FREEZE = re.search(r"F(True|False)", folder_name).group(1) == "True"
 ALG =re.search(r"\[(.*?)\]", folder_name).group(1)
 SEED = int(re.search(r'seed(\d+)', folder_name).group(1))
-
 print("===== Parsed Parameters from Folder Name =====")
 print(f"K_ITERATIONS               : {K_ITERATIONS}")
 print(f"RND_BALANCE                : {RND_BALANCE}")
@@ -66,13 +51,10 @@ print(f"FREEZE                     : {FREEZE}")
 print("ALGORITHM                    :", ALG)
 print("SEED                           :", SEED)
 print("==============================================")
-
  # path where the model to be restored (resumed)
-restored_folder_name = f"{folder_name}"
+restored_folder_name =  f"{folder_name}"
 checkpoint_dir = os.path.join(os.path.dirname(folder_path), restored_folder_name)
 os.makedirs(checkpoint_dir, exist_ok=True)
-
-
 print("="*60)
 print("RND-DAgger Training")
 print("="*60)
