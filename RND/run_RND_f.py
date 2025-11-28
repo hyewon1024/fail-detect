@@ -14,19 +14,35 @@ import re
 from collections.abc import Sequence
 # from task_utils.ood_logger import OODLogger
 import numpy as np 
-# Seed
-set_seed(42)
 
-# # Hyperparameters
+# # Hyperparameter
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--ckpt_folder", type=str, required=True)
+parser.add_argument("--iter_num", type=int, required=True)
+
+args, unknown = parser.parse_known_args()
+
+print("[DEBUG] argparse args:", args)
+print("[DEBUG] unknown args:", unknown)
+
+if args.ckpt_folder is None and "--ckpt_folder" in unknown:
+    idx = unknown.index("--ckpt_folder")
+    args.ckpt_folder = unknown[idx + 1]
+
+if args.iter_num is None and "--iter_num" in unknown:
+    idx = unknown.index("--iter_num")
+    args.iter_num = int(unknown[idx + 1])
+
+folder_path = args.ckpt_folder
+iter_num = args.iter_num
+folder_name = os.path.basename(folder_path)
 
 STEPS_PER_ITERATION = 2000
 INITIAL_EXPERT_STEPS = 0
 EVAL_STEPS = 100  # Steps for policy evaluation
 LAMBDA_THRESHOLD = 0.01
-
-iter_num = 95  # most recent stopping point
-folder_path = "/AILAB-summer-school-2025/RND/checkpoints/restored_[Balanced_Dagger]rnd_iter200_balance_True_epoch_10_alpha_0.5_minDemo70_H0_FTrue"
-folder_name = os.path.basename(folder_path)
 
 # 정규식으로 파라미터 추출
 K_ITERATIONS = int(re.search(r"iter(\d+)", folder_name).group(1))
@@ -147,16 +163,27 @@ hyperparams = {
 with open(f'{checkpoint_dir}/hyperparameters.json', 'w') as f:
     json.dump(hyperparams, f, indent=4)
 
-# Tracking results
-results = {
-    'iterations': [],
-    'dataset_sizes': [],
-    'nswitches': [],
-    'policy_losses': [],
-    'rnd_losses': [],
-    'eval_rewards': [],
-    'eval_episodes': []
-}
+# ==========================
+# Load previous results.json
+# ==========================
+prev_results_path = os.path.join(folder_path, "results.json")
+
+if os.path.exists(prev_results_path):
+    print(f"✅ Loading previous results from {prev_results_path}")
+    with open(prev_results_path, "r") as f:
+        results = json.load(f)
+else:
+    print("⚠️ No previous results.json found. Creating new one.")
+    results = {
+        'iterations': [],
+        'dataset_sizes': [],
+        'nswitches': [],
+        'policy_losses': [],
+        'rnd_losses': [],
+        'eval_rewards': [],
+        'eval_episodes': []
+    }
+
 
 print("\n" + "="*60)
 print("STEP 1: Collecting initial expert dataset D")

@@ -24,6 +24,7 @@ class RNDDAgger:
         logger= None,
         calib_split_ratio: float = 0.5,
         alpha: float = 0.1,
+        beta_start: float = 1.0,
         alg = None, 
     ):
         self.policy = policy
@@ -66,9 +67,9 @@ class RNDDAgger:
         self.alpha = alpha
         self.train_states = None
         self.calib_states = None
+        self.beta_start = beta_start
 
         self.beta_schedule: str = "exponential"  # 'linear', 'exponential', or 'constant'
-        self.beta_start: float = 1.0
         self.beta_end: float = 0.0
         self.adaptive_lambda = None 
 
@@ -305,7 +306,7 @@ class RNDDAgger:
         
         return avg_reward, num_episodes
     
-    def collect_data(self, env, num_steps: int, beta: float, alpha_=None):
+    def collect_data(self, env, num_steps: int, beta=None, alpha_=None):
         """Collect data for one DAgger iteration with RND-based intervention."""
         env.unwrapped.reset()
         states_list = []
@@ -335,7 +336,7 @@ class RNDDAgger:
                     episode=self.episode_count
                 )
             # Decide whether to use policy or expert based on RND
-            if self.alg =="pure_dagger":
+            if self.alg =="Pure_dagger":
                 use_expert = random.random() < beta
             else: 
                 use_expert = m.mean() > max(adaptive_lambda, 0.01) 

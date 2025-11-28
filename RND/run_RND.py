@@ -13,27 +13,50 @@ import json
 from collections.abc import Sequence
 # from task_utils.ood_logger import OODLogger
 
-# Seed
-set_seed(42)
-
 # Hyperparameters
-K_ITERATIONS = 200
-STEPS_PER_ITERATION = 2000
-INITIAL_EXPERT_STEPS = 2000
-EVAL_STEPS = 100  # Steps for policy evaluation
+import argparse
 
-LAMBDA_THRESHOLD = 0.01
-MIN_DEMO_TIME = 70
-HISTORIC_CONTEXT_LENGTH = 0  # H: 0, 1, 2, ... (number of past observations)
-FREEZE = True
-RND_BALANCE = True
-EPOCH = 10
+parser = argparse.ArgumentParser()
+parser.add_argument("--k_iter", type=int, default=200)
+parser.add_argument("--steps_per_iter", type=int, default=2000)
+parser.add_argument("--init_steps", type=int, default=2000)
+parser.add_argument("--eval_steps", type=int, default=100)
+parser.add_argument("--lambda_th", type=float, default=0.01)
+parser.add_argument("--min_demo", type=int, default=70)
+parser.add_argument("--hist", type=int, default=0)
+parser.add_argument("--freeze", action="store_true")
+parser.add_argument("--no_freeze", action="store_false", dest="freeze")
+parser.set_defaults(freeze=True)
+parser.add_argument("--epoch", type=int, default=10)
+parser.add_argument("--seed", type=int, default=13)
+parser.add_argument("--alpha", type=float, default=0.5)
+parser.add_argument("--alg", type=str, default="Balanced_Dagger")
+parser.add_argument("--beta", type=float, default=None)
 
-# ----------change ----------------
-SEED = 2
-ALPHA = 0.5
-ALG = "Balanced_Dagger" # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
-# ----------change ----------------
+
+args, unknown = parser.parse_known_args()
+
+print("\n[DEBUG] User args parsed by RND script:")
+print(args)
+print("[DEBUG] Unknown (Isaac-related) args:")
+print(unknown)
+
+
+K_ITERATIONS = args.k_iter
+STEPS_PER_ITERATION = args.steps_per_iter
+INITIAL_EXPERT_STEPS = args.init_steps
+EVAL_STEPS = args.eval_steps
+
+LAMBDA_THRESHOLD = args.lambda_th
+MIN_DEMO_TIME = args.min_demo
+HISTORIC_CONTEXT_LENGTH = args.hist
+FREEZE = bool(args.freeze)
+EPOCH = args.epoch
+
+SEED = args.seed
+ALPHA = args.alpha
+ALG = args.alg               # Pure_Dagger, R_Dagger, Balanced_Dagger, Safe_Dagger
+BETA = args.beta             # Only for Pure DAgger!!
 
 if ALG == "Pure_Dagger":
     RND_BALANCE = False
@@ -92,7 +115,6 @@ f_targ, f_pred = create_rnd_networks(
     seed = SEED,
 )
 
-
 # Initialize RND-DAgger
 dagger = RNDDAgger(
     policy=policy,
@@ -107,6 +129,7 @@ dagger = RNDDAgger(
     rnd_lr=1e-4,
     batch_size=256,
     logger=None, # ood logger 
+    beta_start=BETA, 
     alg = ALG,
 )
 
@@ -169,7 +192,10 @@ for iteration in range(K_ITERATIONS):
     print(f"Iteration {iteration + 1}/{K_ITERATIONS}")
     print(f"{'='*60}")
     
-    beta = dagger.get_beta(iteration, K_ITERATIONS)
+    if BETA is not None:
+        beta = dagger.get_beta(iteration, K_ITERATIONS)
+    else:
+        beta = None 
 
     # 1. Evaluate policy (no expert intervention)
     eval_reward, eval_episodes = dagger.evaluate_policy(env, num_steps=EVAL_STEPS)
