@@ -4,7 +4,11 @@
 K_ITER=200
 STEPS_PER_ITER=2000
 INIT_STEPS=2000
+<<<<<<< HEAD
 EVAL_ITERS=0          #change steps to iters
+=======
+EVAL_ITERS=0
+>>>>>>> origin/develop
 LAMBDA=0.01
 MIN_DEMO=70
 HIST=0
