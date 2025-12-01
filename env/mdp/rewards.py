@@ -27,9 +27,14 @@ def _one_time_bonus(env: ManagerBasedRLEnv, key: str, condition: torch.Tensor) -
     if flag is None or flag.shape != condition.shape or flag.device != condition.device:
         flag = torch.zeros_like(condition, dtype=torch.bool, device=condition.device)
 
-    # Clear flags on reset if available
+    # Clear flags on reset/episode start.
+    reset_mask = torch.zeros_like(flag)
     if hasattr(env, "reset_buf"):
-        flag = torch.where(env.reset_buf.bool(), torch.zeros_like(flag), flag)
+        reset_mask = reset_mask | env.reset_buf.bool()
+    if hasattr(env, "episode_length_buf"):
+        reset_mask = reset_mask | (env.episode_length_buf == 0)
+    if reset_mask.any():
+        flag = torch.where(reset_mask, torch.zeros_like(flag), flag)
 
     new_true = condition & (~flag)
     flags[key] = flag | condition
