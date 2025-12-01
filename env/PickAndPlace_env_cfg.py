@@ -189,16 +189,16 @@ class RewardsCfg:
     lifting_object_once = RewTerm(
         func=mdp.object_lifted_once,
         params={"minimal_height": 0.04},
-        weight=10.0,
+        weight=5.0,
     )
 
     transport_to_goal_once = RewTerm(
         func=mdp.object_goal_reached_once,
         params={"threshold": 0.05, "minimal_height": 0.04, "command_name": "object_desired_pose"},
-        weight=12.0,
+        weight=15.0,
     )
 
-    place_success_once = RewTerm(func=mdp.object_in_goal_once, weight=60.0)
+    place_success_once = RewTerm(func=mdp.object_in_goal_once, weight=25.0)
 
 
 @configclass
