@@ -183,36 +183,31 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    # Dense shaping: reach, lift, transport, and place the object in the bin area.
-    reaching_object = RewTerm(func=mdp.object_ee_distance, params={"std": 0.1}, weight=4.0)
+    # One-time rewards for each sub-task stage.
+    reaching_object_once = RewTerm(func=mdp.object_reached_once, params={"threshold": 0.05}, weight=5.0)
 
-    lifting_object = RewTerm(
-        func=mdp.object_is_lifted,
+    lifting_object_once = RewTerm(
+        func=mdp.object_lifted_once,
         params={"minimal_height": 0.04},
-        weight=6.0,
-    )
-
-    transport_to_goal = RewTerm(
-        func=mdp.object_goal_distance,
-        params={"std": 0.25, "minimal_height": 0.04, "command_name": "object_desired_pose"},
         weight=10.0,
     )
 
-    obj_dist = RewTerm(
-        func=mdp.obj_bin_dist,
-        weight=15.0,
+    transport_to_goal_once = RewTerm(
+        func=mdp.object_goal_reached_once,
+        params={"threshold": 0.05, "minimal_height": 0.04, "command_name": "object_desired_pose"},
+        weight=20.0,
     )
 
-    place_success = RewTerm(func=mdp.object_in_goal, weight=50.0)
+    place_success_once = RewTerm(func=mdp.object_in_goal_once, weight=15.0)
 
     # action penalty
-    action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
+    # action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-3)
 
-    joint_vel = RewTerm(
-        func=mdp.joint_vel_l2,
-        weight=-1e-4,
-        params={"asset_cfg": SceneEntityCfg("robot")},
-    )
+    # joint_vel = RewTerm(
+    #     func=mdp.joint_vel_l2,
+    #     weight=-1e-3,
+    #     params={"asset_cfg": SceneEntityCfg("robot")},
+    # )
 
 
 @configclass

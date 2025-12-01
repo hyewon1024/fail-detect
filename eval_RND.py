@@ -16,7 +16,7 @@ print(f"Observation dim: {obs_dim}, Action dim: {action_dim}")
 # Initialize policy
 policy = BCPolicy(obs_dim, action_dim, hidden_dims=[128, 128, 128]).to(device)
 # Load trained policy
-checkpoint_path = '/fail-detect/RND/checkpoints/[Safe_Dagger]rnd_iter200_balance_False_epoch_10_alpha_0.9_tau_0.1__minDemo70_H0_FTrue_seed2/policy_iter_80.pt'  # Or choose a specific iteration checkpoint
+checkpoint_path = '/AILAB-summer-school-2025/fail-detect/checkpoints/[Pure_Dagger]rnd_iter200_balance_False_epoch_10_alpha_0.5_minDemo70_H0_FTrue_seed2/policy_iter_55.pt'  # Or choose a specific iteration checkpoint
 
 if not os.path.exists(checkpoint_path):
     print(f"\nERROR: Checkpoint not found at {checkpoint_path}")
@@ -56,11 +56,11 @@ try:
         total_reward += reward.sum().item()
         # Print status every 100 steps
         if step_count % 100 == 0:
-            avg_reward = total_reward / step_count / env.unwrapped.num_envs
-            print(f"Step: {step_count}, Episodes: {episode_count}, Successes: {success_count}, Avg Reward: {avg_reward:.3f}")
+            print(f"Step: {step_count}, Episodes: {episode_count}, Successes: {success_count}, Total Reward: {total_reward:.3f}")
         # Check if any environment is done````
         done = terminated | truncated
         if done.any():
+            print(f"Final Total Reward: {total_reward}")
             episode_count += done.sum().item()
             log = info.get("log", {})
             success_flag = log.get("Episode_Termination/object_inside_bin", 0)
@@ -82,7 +82,7 @@ except KeyboardInterrupt:
     if episode_count > 0:
         success_rate = (success_count / episode_count) * 100
         print(f"Final success rate: {success_rate:.1f}%")
-    avg_reward = total_reward / step_count / env.unwrapped.num_envs if step_count > 0 else 0
-    print(f"Average reward: {avg_reward:.3f}")
+    total_reward if step_count > 0 else 0
+    print(f"Average reward: {total_reward:.3f}")
     print("="*60)
 env.close()
