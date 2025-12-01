@@ -12,6 +12,7 @@ from isaaclab.assets import RigidObject
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils.math import combine_frame_transforms
+from .terminations import object_reached_goal
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -96,30 +97,20 @@ def object_in_goal(
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     bin_cfg: SceneEntityCfg = SceneEntityCfg("bin"),
     ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
-    # 객체-빈 근접 판정 임계값
-    threshold: float = 0.2,
-    # EE-빈 근접 판정 임계값 (EE는 이 범위 "밖"이어야 보상)
     ee_threshold: float = 0.3,
 ) -> torch.Tensor:
-    obj: RigidObject = env.scene[object_cfg.name]
     bin_obj: RigidObject = env.scene[bin_cfg.name]
     ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
 
-    bin_pos = bin_obj.data.root_pos_w           # [N, 3]
-    obj_pos = obj.data.root_pos_w               # [N, 3]
-    ee_pos  = ee_frame.data.target_pos_w[..., 0, :]  # [N, 3]
+    bin_pos = bin_obj.data.root_pos_w
+    ee_pos = ee_frame.data.target_pos_w[..., 0, :]
 
-    # 객체-빈 거리
-    distance = torch.norm(bin_pos[:, :] - obj_pos[:, :], dim=1)   # [N]
-    in_bin = (distance < threshold)        # [N] bool
+    # Align the sparse reward with the termination condition.
+    in_goal_region = object_reached_goal(env, bin_cfg=bin_cfg, object_cfg=object_cfg)
+    ee_outside = torch.norm(ee_pos - bin_pos, dim=1) > ee_threshold
 
-    # EE-빈 거리
-    d_ee_bin = torch.norm(ee_pos - bin_pos, dim=1)              # [N]
-    ee_outside = d_ee_bin > ee_threshold                        # [N] bool
-
-    # 조건: 객체는 bin 안, EE는 bin 밖
-    reward_bool = in_bin & ee_outside                           # [N] bool
-    return reward_bool.float()                                   # sparse: 0 or 1
+    reward_bool = in_goal_region & ee_outside
+    return reward_bool.float()
 
 def object_speed_reward(
     env: ManagerBasedRLEnv,

@@ -183,43 +183,27 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    # reaching_object = RewTerm(func=mdp.object_ee_distance, params={"std": 0.1}, weight=1.0)
+    # Dense shaping: reach, lift, transport, and place the object in the bin area.
+    reaching_object = RewTerm(func=mdp.object_ee_distance, params={"std": 0.1}, weight=4.0)
 
-    # lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.04}, weight=15.0)
+    lifting_object = RewTerm(
+        func=mdp.object_is_lifted,
+        params={"minimal_height": 0.04},
+        weight=6.0,
+    )
 
-    # object_goal_tracking = RewTerm(
-    #     func=mdp.object_goal_distance,
-    #     params={"std": 0.3, "minimal_height": 0.04, "command_name": "object_desired_pose"},
-    #     weight=16.0,
-    # )
-
-    # object_goal_tracking_fine_grained = RewTerm(
-    #     func=mdp.object_goal_distance,
-    #     params={"std": 0.05, "minimal_height": 0.04, "command_name": "object_desired_pose"},
-    #     weight=5.0,
-    # )
-
-    # release = RewTerm(
-    #     func=mdp.drop_to_bin,
-    #     params={"std": 0.3, "minimal_height": 0.2},
-    #     weight=30.0,
-    # )
-    # goal = RewTerm(
-    #     func=mdp.object_in_goal,
-    #     weight=100.0,
-    # )
-
-    # object_vel = RewTerm(
-    #     func=mdp.object_speed_reward,
-    #     weight=0,
-    #     #params={"asset_cfg": SceneEntityCfg("object")}
-    # )
-
+    transport_to_goal = RewTerm(
+        func=mdp.object_goal_distance,
+        params={"std": 0.25, "minimal_height": 0.04, "command_name": "object_desired_pose"},
+        weight=10.0,
+    )
 
     obj_dist = RewTerm(
         func=mdp.obj_bin_dist,
-        weight= 30.0
+        weight=15.0,
     )
+
+    place_success = RewTerm(func=mdp.object_in_goal, weight=50.0)
 
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
