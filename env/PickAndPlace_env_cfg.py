@@ -189,16 +189,25 @@ class RewardsCfg:
     lifting_object_once = RewTerm(
         func=mdp.object_lifted_once,
         params={"minimal_height": 0.04},
-        weight=5.0,
+        weight=10.0,
     )
 
     transport_to_goal_once = RewTerm(
         func=mdp.object_goal_reached_once,
         params={"threshold": 0.05, "minimal_height": 0.04, "command_name": "object_desired_pose"},
-        weight=15.0,
+        weight=20.0,
     )
 
-    place_success_once = RewTerm(func=mdp.object_in_goal_once, weight=25.0)
+    place_success_once = RewTerm(func=mdp.object_in_goal_once, weight=15.0)
+
+    # action penalty
+    # action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-3)
+
+    # joint_vel = RewTerm(
+    #     func=mdp.joint_vel_l2,
+    #     weight=-1e-3,
+    #     params={"asset_cfg": SceneEntityCfg("robot")},
+    # )
 
 
 @configclass
