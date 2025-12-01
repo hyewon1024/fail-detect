@@ -18,12 +18,42 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
+def _one_time_bonus(env: ManagerBasedRLEnv, key: str, condition: torch.Tensor) -> torch.Tensor:
+    """Return 1 the first time condition becomes true per env, else 0."""
+    condition = condition.bool()
+    flags = getattr(env, "_one_time_flags", {})
+    flag = flags.get(key)
+
+    if flag is None or flag.shape != condition.shape or flag.device != condition.device:
+        flag = torch.zeros_like(condition, dtype=torch.bool, device=condition.device)
+
+    # Clear flags on reset if available
+    if hasattr(env, "reset_buf"):
+        flag = torch.where(env.reset_buf.bool(), torch.zeros_like(flag), flag)
+
+    new_true = condition & (~flag)
+    flags[key] = flag | condition
+    env._one_time_flags = flags
+    return new_true.float()
+
+
 def object_is_lifted(
     env: ManagerBasedRLEnv, minimal_height: float, object_cfg: SceneEntityCfg = SceneEntityCfg("object")
 ) -> torch.Tensor:
-    """Reward the agent for lifting the object above the minimal height."""
+    """Dense lift reward (kept for compatibility, not used in one-time setup)."""
     object: RigidObject = env.scene[object_cfg.name]
     return torch.where(object.data.root_pos_w[:, 2] > minimal_height, 1.0, 0.0)
+
+
+def object_lifted_once(
+    env: ManagerBasedRLEnv,
+    minimal_height: float,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+) -> torch.Tensor:
+    """Sparse, one-time reward when the object first crosses the lift height."""
+    object: RigidObject = env.scene[object_cfg.name]
+    lifted = object.data.root_pos_w[:, 2] > minimal_height
+    return _one_time_bonus(env, "lift_once", lifted)
 
 
 def object_ee_distance(
@@ -66,6 +96,39 @@ def object_goal_distance(
     distance = torch.norm(des_pos_w - object.data.root_pos_w[:, :3], dim=1)
     # rewarded if the object is lifted above the threshold
     return (object.data.root_pos_w[:, 2] > minimal_height) * (1 - torch.tanh(distance / std))
+
+
+def object_reached_once(
+    env: ManagerBasedRLEnv,
+    threshold: float,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
+) -> torch.Tensor:
+    """One-time bonus when the end-effector first comes within a distance threshold to the object."""
+    object: RigidObject = env.scene[object_cfg.name]
+    ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
+    dist = torch.norm(object.data.root_pos_w - ee_frame.data.target_pos_w[..., 0, :], dim=1)
+    close = dist < threshold
+    return _one_time_bonus(env, "reach_once", close)
+
+
+def object_goal_reached_once(
+    env: ManagerBasedRLEnv,
+    threshold: float,
+    minimal_height: float,
+    command_name: str,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+) -> torch.Tensor:
+    """One-time bonus when the object first reaches the commanded pose (within threshold and lifted)."""
+    robot: RigidObject = env.scene[robot_cfg.name]
+    object: RigidObject = env.scene[object_cfg.name]
+    command = env.command_manager.get_command(command_name)
+    des_pos_b = command[:, :3]
+    des_pos_w, _ = combine_frame_transforms(robot.data.root_state_w[:, :3], robot.data.root_state_w[:, 3:7], des_pos_b)
+    distance = torch.norm(des_pos_w - object.data.root_pos_w[:, :3], dim=1)
+    reached = (object.data.root_pos_w[:, 2] > minimal_height) & (distance < threshold)
+    return _one_time_bonus(env, "goal_once", reached)
 
 
 def drop_to_bin(
@@ -111,6 +174,18 @@ def object_in_goal(
 
     reward_bool = in_goal_region & ee_outside
     return reward_bool.float()
+
+
+def object_in_goal_once(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    bin_cfg: SceneEntityCfg = SceneEntityCfg("bin"),
+    ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
+    ee_threshold: float = 0.3,
+) -> torch.Tensor:
+    """One-time bonus when the object first satisfies the goal condition."""
+    in_goal = object_in_goal(env, object_cfg=object_cfg, bin_cfg=bin_cfg, ee_frame_cfg=ee_frame_cfg, ee_threshold=ee_threshold)
+    return _one_time_bonus(env, "place_once", in_goal > 0.5)
 
 def object_speed_reward(
     env: ManagerBasedRLEnv,
