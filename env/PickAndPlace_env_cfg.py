@@ -177,8 +177,6 @@ class EventCfg:
             "asset_cfg": SceneEntityCfg("object", body_names="Object"),
         },
     )
-
-
 @configclass
 class RewardsCfg:
     """Reward terms for the MDP."""
@@ -200,12 +198,12 @@ class RewardsCfg:
 
     place_success_once = RewTerm(func=mdp.object_in_goal_once, weight=15.0)
 
-    # action penalty
-    # action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-3)
+    # # action penalty
+    # action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
 
     # joint_vel = RewTerm(
     #     func=mdp.joint_vel_l2,
-    #     weight=-1e-3,
+    #     weight=-1e-4,
     #     params={"asset_cfg": SceneEntityCfg("robot")},
     # )
 
