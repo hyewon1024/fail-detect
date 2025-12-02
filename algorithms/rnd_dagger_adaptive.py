@@ -349,9 +349,9 @@ class RNDDAgger:
                         action = self.policy(obs)
                         dist = torch.norm(action - expert_action, p=2).pow(2)
                         if dist <= tau :
-                            use_expert = 1
+                            use_expert = 0
                         else:
-                            use_expert  = 0
+                            use_expert  = 1
 
                 if use_expert:
                     expert_action = self.expert.compute(obs)
