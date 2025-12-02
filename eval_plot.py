@@ -100,6 +100,7 @@ def evaluate_all_iters_incremental(
 
         if algo_name not in algorithms:
             continue
+
         if seed not in seeds:
             continue
 
@@ -108,19 +109,21 @@ def evaluate_all_iters_incremental(
         # α 추출
         alpha = extract_alpha(folder)
 
-        # ==============================
-        # JSON 계층 존재 여부 확인 + 없으면 생성
-        # ==============================
+        # =====================================================
+        #  alpha key 설정 (예: "0.5")
+        # =====================================================
+        alpha_key = str(alpha)
+
         if algo_name not in existing:
-            existing[algo_name] = {"alpha": alpha, "seeds": {}}
+            existing[algo_name] = {}
 
-        if "alpha" not in existing[algo_name] or existing[algo_name]["alpha"] != alpha:
-            existing[algo_name]["alpha"] = alpha
+        if alpha_key not in existing[algo_name]:
+            existing[algo_name][alpha_key] = {"seeds": {}}
 
-        if str(seed) not in existing[algo_name]["seeds"]:
-            existing[algo_name]["seeds"][str(seed)] = {"iter_results": {}}
+        if str(seed) not in existing[algo_name][alpha_key]["seeds"]:
+            existing[algo_name][alpha_key]["seeds"][str(seed)] = {"iter_results": {}}
+        recorded_iters = existing[algo_name][alpha_key]["seeds"][str(seed)]["iter_results"].keys()
 
-        recorded_iters = existing[algo_name]["seeds"][str(seed)]["iter_results"].keys()
 
         # ======================================================
         # policy_iter_xx.pt 추출
@@ -141,7 +144,6 @@ def evaluate_all_iters_incremental(
         # ======================================================
         for it in iter_list:
             if str(it) in recorded_iters:
-                # 이미 평가한 iter → skip
                 continue
 
             ckpt_path = os.path.join(folder_path, f"policy_iter_{it}.pt")
@@ -166,10 +168,8 @@ def evaluate_all_iters_incremental(
                 "reward_std": float(np.std(reward_list)),
                 "reward_list": reward_list,
             }
-            existing[algo_name]["seeds"][str(seed)]["iter_results"][str(it)] = iter_data
+            existing[algo_name][alpha_key]["seeds"][str(seed)]["iter_results"][str(it)] = iter_data
 
-
-            # 업데이트 중간 저장(안전)
             update_json(save_json_path, existing)
 
     print("\n==============================")
@@ -185,8 +185,8 @@ CHECKPOINT_ROOT = "/AILAB-summer-school-2025/checkpoints/total"
 results = evaluate_all_iters_incremental(
     checkpoint_root="/AILAB-summer-school-2025/checkpoints/total",
     algorithms=["Pure_Dagger", "R_Dagger", "Balanced_Dagger", "Safe_Dagger"],
-    seeds=[2],
-    num_episodes=5,
+    seeds=[2, 13, 42],
+    num_episodes=15,
     save_json_path="/AILAB-summer-school-2025/eval_all_iters.json",
     env=env,
     device=device,

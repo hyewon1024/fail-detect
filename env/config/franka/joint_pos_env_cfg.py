@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sensors import FrameTransformerCfg, CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
@@ -49,7 +51,7 @@ class FrankaCubePickAndPlaceEnvCfg(PickAndPlaceEnvCfg):
         # Set Cube as object
         self.scene.object = RigidObjectCfg(
             prim_path="{ENV_REGEX_NS}/Object",
-            init_state=RigidObjectCfg.InitialStateCfg(pos=[4.0280e-01, -3.6916e-02, 0.055], rot=[1, 0, 0, 0]),
+            init_state=RigidObjectCfg.InitialStateCfg(pos=([4.0280e-01, -3.6916e-02, 0.055] + np.random.normal(0, 0.015, 3)).tolist(), rot=[1, 0, 0, 0]),
             spawn=UsdFileCfg(
                 usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd",
                 scale=(0.8, 0.8, 0.8),
